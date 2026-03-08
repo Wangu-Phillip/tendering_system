@@ -10,7 +10,7 @@ export default function NotFoundPage() {
           to="/"
           className="mt-6 inline-block px-6 py-3 bg-secondary text-white rounded-lg hover:bg-blue-600"
         >
-          Go to Dashboard
+          Go to Homepage
         </Link>
       </div>
     </div>
