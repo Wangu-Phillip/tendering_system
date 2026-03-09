@@ -14,7 +14,7 @@ export interface AuthUser {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  role?: 'admin' | 'vendor' | 'buyer';
+  role?: 'admin' | 'bidder' | 'procurement_entity';
 }
 
 export class AuthService {
@@ -30,7 +30,7 @@ export class AuthService {
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
           photoURL: firebaseUser.photoURL,
-          role: 'vendor', // Default role - update based on user profile in Firestore
+          role: 'bidder', // Default role - update based on user profile in Firestore
         };
       } else {
         this.currentUser = null;
@@ -39,7 +39,7 @@ export class AuthService {
     });
   }
 
-  async register(email: string, password: string, displayName?: string, organizationName?: string): Promise<AuthUser> {
+  async register(email: string, password: string, displayName?: string, organizationName?: string, role?: string): Promise<AuthUser> {
     try {
       // Validate inputs
       if (!email || !password) {
@@ -51,12 +51,14 @@ export class AuthService {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
       
+      const userRole = (role || 'bidder') as 'admin' | 'bidder' | 'procurement_entity';
+      
       const newUser: AuthUser = {
         uid,
         email: userCredential.user.email,
         displayName: displayName || userCredential.user.displayName,
         photoURL: userCredential.user.photoURL,
-        role: 'vendor',
+        role: userRole,
       };
       
       // Save user profile to Firestore
@@ -65,7 +67,7 @@ export class AuthService {
           email: email,
           displayName: displayName || '',
           organizationName: organizationName || '',
-          role: 'vendor',
+          role: userRole,
           photoURL: '',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -94,7 +96,7 @@ export class AuthService {
         email: userCredential.user.email,
         displayName: userCredential.user.displayName,
         photoURL: userCredential.user.photoURL,
-        role: 'vendor', // Default role - fetch from Firestore if needed
+        role: 'bidder', // Default role - fetch from Firestore if needed
       };
       this.currentUser = user;
       this.notifyListeners(user);

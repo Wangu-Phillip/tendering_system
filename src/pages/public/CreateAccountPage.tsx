@@ -8,6 +8,8 @@ import {
   EyeOff,
   Clock,
   ArrowRight,
+  Briefcase,
+  Building2,
 } from "lucide-react";
 import { z } from "zod";
 import authService from "@/firebase/auth";
@@ -18,6 +20,7 @@ interface FieldErrors {
   displayName?: string;
   password?: string;
   confirmPassword?: string;
+  role?: string;
 }
 
 export default function CreateAccountPage() {
@@ -28,6 +31,7 @@ export default function CreateAccountPage() {
     organizationName: "",
     password: "",
     confirmPassword: "",
+    role: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -68,6 +72,10 @@ export default function CreateAccountPage() {
 
     // Validate all fields
     const newFieldErrors: FieldErrors = {};
+
+    if (!formData.role) {
+      newFieldErrors.role = "Please select a role";
+    }
 
     if (!formData.displayName.trim()) {
       newFieldErrors.displayName = "Name is required";
@@ -117,6 +125,7 @@ export default function CreateAccountPage() {
         formData.password,
         formData.displayName,
         formData.organizationName,
+        formData.role,
       );
 
       navigate("/");
@@ -205,6 +214,102 @@ export default function CreateAccountPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Role Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Account Type
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Bidder Option */}
+                  <label className="cursor-pointer">
+                    <input
+                      type="radio"
+                      name="role"
+                      value="bidder"
+                      checked={formData.role === "bidder"}
+                      onChange={(e) =>
+                        setFormData({ ...formData, role: e.target.value })
+                      }
+                      className="sr-only"
+                    />
+                    <div
+                      className={`p-4 border-2 rounded-xl transition-all flex flex-col items-center gap-2 ${
+                        formData.role === "bidder"
+                          ? "border-secondary bg-secondary/5"
+                          : "border-gray-200 bg-white hover:border-gray-300"
+                      }`}
+                    >
+                      <Briefcase
+                        size={24}
+                        className={
+                          formData.role === "bidder"
+                            ? "text-secondary"
+                            : "text-gray-400"
+                        }
+                      />
+                      <span
+                        className={`text-sm font-semibold ${
+                          formData.role === "bidder"
+                            ? "text-secondary"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        Bidder
+                      </span>
+                      <span className="text-xs text-gray-500 text-center">
+                        Submit bids
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Procurement Entity Option */}
+                  <label className="cursor-pointer">
+                    <input
+                      type="radio"
+                      name="role"
+                      value="procurement_entity"
+                      checked={formData.role === "procurement_entity"}
+                      onChange={(e) =>
+                        setFormData({ ...formData, role: e.target.value })
+                      }
+                      className="sr-only"
+                    />
+                    <div
+                      className={`p-4 border-2 rounded-xl transition-all flex flex-col items-center gap-2 ${
+                        formData.role === "procurement_entity"
+                          ? "border-secondary bg-secondary/5"
+                          : "border-gray-200 bg-white hover:border-gray-300"
+                      }`}
+                    >
+                      <Building2
+                        size={24}
+                        className={
+                          formData.role === "procurement_entity"
+                            ? "text-secondary"
+                            : "text-gray-400"
+                        }
+                      />
+                      <span
+                        className={`text-sm font-semibold ${
+                          formData.role === "procurement_entity"
+                            ? "text-secondary"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        Procuring Entity
+                      </span>
+                      <span className="text-xs text-gray-500 text-center">
+                        Manage tenders
+                      </span>
+                    </div>
+                  </label>
+                </div>
+                {fieldErrors.role && (
+                  <p className="text-red-600 text-xs mt-2">
+                    {fieldErrors.role}
+                  </p>
+                )}
+              </div>
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-3.5 text-red-700 text-sm flex items-start gap-2">
                   <span className="shrink-0 mt-0.5">⚠</span>
