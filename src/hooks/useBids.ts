@@ -7,23 +7,25 @@ export const useBids = (filters?: Record<string, any>) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchBids = async () => {
-      try {
-        setLoading(true);
-        const data = await firestoreService.getDocuments('bids');
-        setBids(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch bids');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchBids = async () => {
+    try {
+      setLoading(true);
+      const data = await firestoreService.getDocuments('bids');
+      setBids(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch bids');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchBids();
   }, [filters]);
 
-  return { bids, loading, error };
+  const refetch = () => fetchBids();
+
+  return { bids, loading, error, refetch };
 };
 
 export const useBidDetail = (id: string) => {
@@ -31,23 +33,29 @@ export const useBidDetail = (id: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchBid = async () => {
-      try {
-        setLoading(true);
-        const data = await firestoreService.getDocument('bids', id);
-        setBid(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch bid');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchBid = async () => {
+    try {
+      setLoading(true);
+      const data = await firestoreService.getDocument('bids', id);
+      setBid(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch bid');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (id) {
       fetchBid();
     }
   }, [id]);
 
-  return { bid, loading, error };
+  const refetch = () => {
+    if (id) {
+      fetchBid();
+    }
+  };
+
+  return { bid, loading, error, refetch };
 };

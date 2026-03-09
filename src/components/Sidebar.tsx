@@ -21,7 +21,7 @@ export default function Sidebar({ isOpen, onToggle, userRole }: SidebarProps) {
         // Bidder menu
         return [
           ...commonItems,
-          { label: "My Bids", href: "/bids" },
+          { label: "Bids", href: "/bids" },
           { label: "Profile", href: "/profile" },
         ];
       case "buyer":

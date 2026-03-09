@@ -4,6 +4,7 @@ import { AlertCircle, Check, Upload, X, Loader } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTenderDetail } from "@hooks/useTenders";
 import bidService from "@services/bidService";
+import tenderService from "@services/tenderService";
 import Button from "@components/Button";
 import TextArea from "@components/TextArea";
 import Loading from "@components/Loading";
@@ -127,6 +128,7 @@ export default function BidSubmissionPage() {
       // Create bid with status already set to "submitted"
       const bidData: Omit<Bid, "id" | "createdAt" | "updatedAt"> = {
         tenderId: tender.id,
+        tenderTitle: tender.title,
         vendorId: currentUser.uid,
         vendorName:
           currentUser.displayName || currentUser.email || "Unknown Vendor",
@@ -139,6 +141,17 @@ export default function BidSubmissionPage() {
 
       // Submit the bid (already created with status "submitted")
       await bidService.createBid(bidData);
+
+      // Update tender's bid count
+      try {
+        const currentBidCount = tender.bidCount || 0;
+        await tenderService.updateTender(tender.id, {
+          bidCount: currentBidCount + 1,
+        });
+      } catch (updateError) {
+        console.warn("Could not update bid count:", updateError);
+        // Don't fail the submission if bid count update fails
+      }
 
       setSuccessMessage("Bid submitted successfully!");
       setTimeout(() => {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertCircle, Check, X } from "lucide-react";
+import { AlertCircle, Check } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import authService, { UserProfile } from "@/firebase/auth";
 import Button from "@components/Button";
@@ -43,8 +43,8 @@ export default function ProfilePage() {
             organizationName: profileData.organizationName || "",
           });
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load profile");
+      } catch (err: unknown) {
+        setError((err as any)?.message || "Failed to load profile");
       } finally {
         setLoading(false);
       }
@@ -85,8 +85,8 @@ export default function ProfilePage() {
       setIsEditing(false);
       setSuccessMessage("Profile updated successfully!");
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update profile");
+    } catch (err: unknown) {
+      setError((err as any)?.message || "Failed to update profile");
     } finally {
       setLoading(false);
     }
@@ -107,8 +107,8 @@ export default function ProfilePage() {
       setIsDeleting(true);
       await authService.deleteUserAccount(currentUser.uid);
       navigate("/");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete account");
+    } catch (err: unknown) {
+      setError((err as any)?.message || "Failed to delete account");
       setIsDeleting(false);
     }
   };

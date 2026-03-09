@@ -1,6 +1,6 @@
 import { createContext, useContext, ReactNode } from "react";
 
-export type UserRole = "admin" | "vendor" | "buyer";
+export type UserRole = "admin" | "bidder" | "buyer";
 
 export interface AuthUser {
   uid: string;

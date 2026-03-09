@@ -222,7 +222,8 @@ export default function BidderDashboard() {
                 {myBids.slice(0, 5).map((bid: Bid) => (
                   <tr key={bid.id} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {bid.tenderId}
+                      {tenders.find((t: Tender) => t.id === bid.tenderId)
+                        ?.title || bid.tenderId}
                     </td>
                     <td className="px-6 py-4 text-sm font-semibold text-gray-900">
                       {formatCurrency(bid.amount, bid.currency)}

@@ -1,24 +1,30 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Eye, Filter } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Eye, Filter, Edit2, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useBids } from "@hooks/useBids";
 import Loading from "@components/Loading";
 import Error from "@components/Error";
-import Badge from "@components/Badge";
 import Button from "@components/Button";
 import { formatCurrency, formatDate } from "@utils/formatters";
 import { Bid } from "@types";
+import bidService from "@/services/bidService";
+import tenderService from "@/services/tenderService";
 
 export default function BidsPage() {
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const { bids, loading, error } = useBids();
+  const { bids, loading, error, refetch } = useBids();
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [deletingBidId, setDeletingBidId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(
+    null,
+  );
 
   // Filter bids based on user role and status
   const filteredBids = bids.filter((bid: Bid) => {
-    // If user is a vendor, show only their bids
-    if (currentUser?.role === "vendor") {
+    // If user is a bidder, show only their bids
+    if (currentUser?.role === "bidder") {
       return (
         bid.vendorId === currentUser.uid &&
         (statusFilter === "all" || bid.status === statusFilter)
@@ -58,6 +64,31 @@ export default function BidsPage() {
 
   const stats = getBidStats();
 
+  const handleDeleteBid = async (bid: Bid) => {
+    setDeletingBidId(bid.id);
+    try {
+      // Delete the bid
+      await bidService.deleteBid(bid.id);
+
+      // Decrement the tender's bid count
+      const tender = await tenderService.getTender(bid.tenderId);
+      if (tender) {
+        const newBidCount = Math.max(0, (tender.bidCount || 1) - 1);
+        await tenderService.updateTender(bid.tenderId, {
+          bidCount: newBidCount,
+        });
+      }
+
+      setShowDeleteConfirm(null);
+      refetch();
+    } catch (error) {
+      console.error("Error deleting bid:", error);
+      alert("Failed to delete bid. Please try again.");
+    } finally {
+      setDeletingBidId(null);
+    }
+  };
+
   if (loading) return <Loading message="Loading bids..." />;
   if (error) return <Error message={error} />;
 
@@ -67,15 +98,15 @@ export default function BidsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            {currentUser?.role === "vendor" ? "My Bids" : "All Bids"}
+            {currentUser?.role === "bidder" ? "My Bids" : "All Bids"}
           </h1>
           <p className="text-gray-600 text-sm mt-1">
-            {currentUser?.role === "vendor"
+            {currentUser?.role === "bidder"
               ? "Track and manage your submitted bids"
               : "Review and manage all submitted bids"}
           </p>
         </div>
-        {currentUser?.role === "vendor" && (
+        {currentUser?.role === "bidder" && (
           <Link to="/tenders">
             <Button variant="secondary">Submit New Bid</Button>
           </Link>
@@ -144,11 +175,11 @@ export default function BidsPage() {
         {filteredBids.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-gray-500">
-              {currentUser?.role === "vendor"
+              {currentUser?.role === "bidder"
                 ? "You haven't submitted any bids yet"
                 : "No bids found"}
             </p>
-            {currentUser?.role === "vendor" && (
+            {currentUser?.role === "bidder" && (
               <Link
                 to="/tenders"
                 className="text-secondary hover:underline mt-2 inline-block"
@@ -162,7 +193,7 @@ export default function BidsPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                  {currentUser?.role === "vendor" ? "Tender" : "Vendor"}
+                  {currentUser?.role === "bidder" ? "Tender" : "Vendor"}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
                   Bid Amount
@@ -185,8 +216,8 @@ export default function BidsPage() {
               {filteredBids.map((bid: Bid) => (
                 <tr key={bid.id} className="hover:bg-gray-50 transition">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {currentUser?.role === "vendor"
-                      ? bid.tenderId
+                    {currentUser?.role === "bidder"
+                      ? bid.tenderTitle
                       : bid.vendorName}
                   </td>
                   <td className="px-6 py-4 text-sm font-semibold text-gray-900">
@@ -228,13 +259,40 @@ export default function BidsPage() {
                     {formatDate(bid.createdAt)}
                   </td>
                   <td className="px-6 py-4 text-sm">
-                    <Link
-                      to={`/bids/${bid.id}`}
-                      className="inline-flex items-center gap-2 px-3 py-1 bg-secondary text-white rounded hover:bg-blue-600 transition text-xs font-medium"
-                    >
-                      <Eye size={16} />
-                      View
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/bids/${bid.id}`}
+                        className="inline-flex items-center gap-2 px-3 py-1 bg-secondary text-white rounded hover:bg-blue-600 transition text-xs font-medium"
+                      >
+                        <Eye size={16} />
+                        View
+                      </Link>
+                      {currentUser?.role === "bidder" &&
+                        currentUser?.uid === bid.vendorId &&
+                        (bid.status === "draft" ||
+                          bid.status === "submitted") && (
+                          <>
+                            <button
+                              onClick={() =>
+                                navigate(`/bids/${bid.id}?edit=true`)
+                              }
+                              className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-xs font-medium"
+                              title="Edit bid"
+                            >
+                              <Edit2 size={16} />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => setShowDeleteConfirm(bid.id)}
+                              className="inline-flex items-center gap-2 px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition text-xs font-medium"
+                              title="Delete bid"
+                            >
+                              <Trash2 size={16} />
+                              Delete
+                            </button>
+                          </>
+                        )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -243,11 +301,45 @@ export default function BidsPage() {
         )}
       </div>
 
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Delete Bid?
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this bid? This action cannot be
+              undone.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => setShowDeleteConfirm(null)}
+                variant="secondary"
+                disabled={!!deletingBidId}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const bid = bids.find((b) => b.id === showDeleteConfirm);
+                  if (bid) handleDeleteBid(bid);
+                }}
+                disabled={!!deletingBidId}
+                className="!bg-red-600 !hover:bg-red-700"
+              >
+                {deletingBidId === showDeleteConfirm ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Help Section */}
-      {currentUser?.role === "vendor" && (
+      {currentUser?.role === "bidder" && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h3 className="font-semibold text-blue-900 mb-3">
-            📊 Bid Tracking Guide
+            Bid Tracking Guide
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
             <div>

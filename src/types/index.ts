@@ -28,6 +28,7 @@ export interface Tender {
 export interface Bid {
   id: string;
   tenderId: string;
+  tenderTitle: string;
   vendorId: string;
   vendorName: string;
   amount: number;
