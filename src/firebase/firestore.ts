@@ -1,137 +1,144 @@
-// Dummy Firestore Service (Mock data for UI testing)
-
-// Mock collections data
-const MOCK_TENDERS = [
-  {
-    id: 'tender-1',
-    title: 'Office Supplies Purchase',
-    description: 'We are looking for a supplier to provide office supplies for our organization.',
-    category: 'Supplies',
-    budget: 5000,
-    currency: 'BWP',
-    deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    status: 'open',
-    createdBy: 'user-123',
-    attachments: [],
-    bidCount: 3,
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: 'tender-2',
-    title: 'Website Redesign Project',
-    description: 'Need a professional web design agency to redesign our company website.',
-    category: 'IT & Software',
-    budget: 15000,
-    currency: 'BWP',
-    deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-    status: 'open',
-    createdBy: 'user-123',
-    attachments: [],
-    bidCount: 5,
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: 'tender-3',
-    title: 'Construction Materials Supply',
-    description: 'Looking for bulk construction materials for our ongoing project.',
-    category: 'Construction',
-    budget: 50000,
-    currency: 'BWP',
-    deadline: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
-    status: 'open',
-    createdBy: 'user-123',
-    attachments: [],
-    bidCount: 2,
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-  },
-];
-
-const MOCK_BIDS = [
-  {
-    id: 'bid-1',
-    tenderId: 'tender-1',
-    vendorId: 'vendor-1',
-    vendorName: 'ABC Supplies Inc.',
-    amount: 4800,
-    currency: 'BWP',
-    description: 'Quality office supplies at competitive prices. Fast delivery available.',
-    attachments: [],
-    status: 'submitted',
-    evaluationScore: 85,
-    feedback: 'Good pricing and reliable service history.',
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: 'bid-2',
-    tenderId: 'tender-1',
-    vendorId: 'vendor-2',
-    vendorName: 'Office Plus LLC',
-    amount: 5200,
-    currency: 'BWP',
-    description: 'Full range of office supplies with bulk discounts available.',
-    attachments: [],
-    status: 'submitted',
-    evaluationScore: 78,
-    feedback: 'Good selection but slightly higher pricing.',
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: 'bid-3',
-    tenderId: 'tender-2',
-    vendorId: 'vendor-3',
-    vendorName: 'Digital Designs Studio',
-    amount: 14500,
-    currency: 'BWP',
-    description: 'Modern responsive design with full UX research and testing.',
-    attachments: [],
-    status: 'submitted',
-    evaluationScore: 92,
-    feedback: 'Excellent portfolio and proven track record.',
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-  },
-];
+import { db } from './config';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  QueryConstraint,
+  Timestamp,
+} from 'firebase/firestore';
 
 export class FirestoreService {
-  async addDocument(_collectionName: string, _data: Record<string, any>): Promise<string> {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const id = `doc-${Date.now()}`;
-    return id;
+  /**
+   * Add a new document to a collection
+   */
+  async addDocument(collectionName: string, data: Record<string, any>): Promise<string> {
+    try {
+      // Convert Date objects to Firestore Timestamps
+      const processedData = this.processDateFields(data);
+      const collectionRef = collection(db, collectionName);
+      const docRef = await addDoc(collectionRef, {
+        ...processedData,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error(`Error adding document to ${collectionName}:`, error);
+      throw error;
+    }
   }
 
-  async updateDocument(_collectionName: string, _docId: string, _data: Record<string, any>): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 300));
+  /**
+   * Update an existing document
+   */
+  async updateDocument(collectionName: string, docId: string, data: Record<string, any>): Promise<void> {
+    try {
+      const processedData = this.processDateFields(data);
+      const docRef = doc(db, collectionName, docId);
+      await updateDoc(docRef, {
+        ...processedData,
+        updatedAt: Timestamp.now(),
+      });
+    } catch (error) {
+      console.error(`Error updating document in ${collectionName}:`, error);
+      throw error;
+    }
   }
 
-  async deleteDocument(_collectionName: string, _docId: string): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 300));
+  /**
+   * Delete a document
+   */
+  async deleteDocument(collectionName: string, docId: string): Promise<void> {
+    try {
+      const docRef = doc(db, collectionName, docId);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error(`Error deleting document from ${collectionName}:`, error);
+      throw error;
+    }
   }
 
+  /**
+   * Get a single document by ID
+   */
   async getDocument(collectionName: string, docId: string): Promise<any> {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    if (collectionName === 'tenders') {
-      return MOCK_TENDERS.find(t => t.id === docId) || null;
-    } else if (collectionName === 'bids') {
-      return MOCK_BIDS.find(b => b.id === docId) || null;
+    try {
+      const docRef = doc(db, collectionName, docId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        return this.convertDocumentData(docSnap.id, docSnap.data());
+      }
+      return null;
+    } catch (error) {
+      console.error(`Error getting document from ${collectionName}:`, error);
+      throw error;
     }
-    return null;
   }
 
-  async getDocuments(collectionName: string, _constraints?: any[]): Promise<any[]> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    if (collectionName === 'tenders') {
-      return MOCK_TENDERS;
-    } else if (collectionName === 'bids') {
-      return MOCK_BIDS;
+  /**
+   * Get multiple documents from a collection with optional constraints
+   */
+  async getDocuments(collectionName: string, constraints?: QueryConstraint[]): Promise<any[]> {
+    try {
+      const collectionRef = collection(db, collectionName);
+      const q = constraints && constraints.length > 0
+        ? query(collectionRef, ...constraints)
+        : collectionRef;
+
+      const querySnapshot = await getDocs(q);
+      const documents: any[] = [];
+
+      querySnapshot.forEach((doc) => {
+        documents.push(this.convertDocumentData(doc.id, doc.data()));
+      });
+
+      return documents;
+    } catch (error) {
+      console.error(`Error getting documents from ${collectionName}:`, error);
+      throw error;
     }
-    return [];
+  }
+
+  /**
+   * Convert Firestore Timestamps to JavaScript Date objects
+   */
+  private convertDocumentData(docId: string, data: any): any {
+    const converted = { id: docId, ...data };
+
+    // Convert Firestore Timestamps to Date objects
+    Object.keys(converted).forEach((key) => {
+      if (converted[key] instanceof Timestamp) {
+        converted[key] = converted[key].toDate();
+      } else if (typeof converted[key] === 'object' && converted[key] !== null) {
+        // Recursively convert nested objects
+        if (converted[key] instanceof Timestamp) {
+          converted[key] = converted[key].toDate();
+        }
+      }
+    });
+
+    return converted;
+  }
+
+  /**
+   * Process Date objects and convert them to Firestore Timestamps
+   */
+  private processDateFields(data: Record<string, any>): Record<string, any> {
+    const processed = { ...data };
+
+    Object.keys(processed).forEach((key) => {
+      if (processed[key] instanceof Date) {
+        processed[key] = Timestamp.fromDate(processed[key]);
+      }
+    });
+
+    return processed;
   }
 }
 

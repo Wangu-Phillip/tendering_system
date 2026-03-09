@@ -5,9 +5,11 @@ import {
   sendPasswordResetEmail,
   onAuthStateChanged,
   User,
+  deleteUser,
+  updateProfile,
 } from "firebase/auth";
 import { auth, db } from './config';
-import { setDoc, doc, getDoc } from 'firebase/firestore';
+import { setDoc, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 export interface AuthUser {
   uid: string;
@@ -15,6 +17,12 @@ export interface AuthUser {
   displayName: string | null;
   photoURL: string | null;
   role?: 'admin' | 'vendor' | 'buyer';
+}
+
+export interface UserProfile extends AuthUser {
+  organizationName?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export class AuthService {
@@ -154,6 +162,99 @@ export class AuthService {
     try {
       await sendPasswordResetEmail(auth, email);
     } catch (error) {
+      throw this.handleFirebaseError(error);
+    }
+  }
+
+  async getUserProfile(uid: string): Promise<UserProfile | null> {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        return {
+          uid,
+          email: data.email,
+          displayName: data.displayName,
+          photoURL: data.photoURL || null,
+          organizationName: data.organizationName,
+          role: data.role,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      throw this.handleFirebaseError(error);
+    }
+  }
+
+  async updateUserProfile(uid: string, updates: Partial<UserProfile>): Promise<void> {
+    try {
+      const firebaseUser = auth.currentUser;
+      
+      // Update Firebase Auth profile if name or photo changed
+      if (firebaseUser && (updates.displayName || updates.photoURL)) {
+        await updateProfile(firebaseUser, {
+          displayName: updates.displayName || firebaseUser.displayName,
+          photoURL: updates.photoURL || firebaseUser.photoURL,
+        });
+      }
+
+      // Update Firestore user document
+      const userDocRef = doc(db, 'users', uid);
+      const updateData: Record<string, any> = {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      // Remove uid from update data as it shouldn't change
+      delete updateData.uid;
+      delete updateData.role; // Prevent role changes through this method
+      
+      await updateDoc(userDocRef, updateData);
+      
+      // Update current user in memory
+      if (this.currentUser) {
+        this.currentUser = {
+          ...this.currentUser,
+          displayName: updates.displayName || this.currentUser.displayName,
+          photoURL: updates.photoURL || this.currentUser.photoURL,
+        };
+        this.notifyListeners(this.currentUser);
+      }
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw this.handleFirebaseError(error);
+    }
+  }
+
+  async deleteUserAccount(uid: string): Promise<void> {
+    try {
+      const firebaseUser = auth.currentUser;
+      
+      if (!firebaseUser) {
+        throw new Error('No user is currently logged in');
+      }
+
+      if (firebaseUser.uid !== uid) {
+        throw new Error('Cannot delete another user\'s account');
+      }
+
+      // Delete Firestore user document
+      const userDocRef = doc(db, 'users', uid);
+      await deleteDoc(userDocRef);
+
+      // Delete Firebase Auth user
+      await deleteUser(firebaseUser);
+
+      // Clear current user
+      this.currentUser = null;
+      this.notifyListeners(null);
+      
+      console.log('User account deleted successfully');
+    } catch (error) {
+      console.error('Error deleting user account:', error);
       throw this.handleFirebaseError(error);
     }
   }

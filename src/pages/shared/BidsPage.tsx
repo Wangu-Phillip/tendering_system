@@ -1,78 +1,274 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Eye, Filter } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { useBids } from "@hooks/useBids";
 import Loading from "@components/Loading";
 import Error from "@components/Error";
 import Badge from "@components/Badge";
+import Button from "@components/Button";
 import { formatCurrency, formatDate } from "@utils/formatters";
 import { Bid } from "@types";
 
 export default function BidsPage() {
+  const { currentUser } = useAuth();
   const { bids, loading, error } = useBids();
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  // Filter bids based on user role and status
+  const filteredBids = bids.filter((bid: Bid) => {
+    // If user is a vendor, show only their bids
+    if (currentUser?.role === "vendor") {
+      return (
+        bid.vendorId === currentUser.uid &&
+        (statusFilter === "all" || bid.status === statusFilter)
+      );
+    }
+    // If user is buyer/admin, show all bids with status filter
+    return statusFilter === "all" || bid.status === statusFilter;
+  });
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "draft":
+        return "bg-gray-100 text-gray-800";
+      case "submitted":
+        return "bg-blue-100 text-blue-800";
+      case "evaluated":
+        return "bg-purple-100 text-purple-800";
+      case "awarded":
+        return "bg-green-100 text-green-800";
+      case "rejected":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getBidStats = () => {
+    const stats = {
+      total: filteredBids.length,
+      submitted: filteredBids.filter((b) => b.status === "submitted").length,
+      evaluated: filteredBids.filter((b) => b.status === "evaluated").length,
+      awarded: filteredBids.filter((b) => b.status === "awarded").length,
+      rejected: filteredBids.filter((b) => b.status === "rejected").length,
+    };
+    return stats;
+  };
+
+  const stats = getBidStats();
 
   if (loading) return <Loading message="Loading bids..." />;
   if (error) return <Error message={error} />;
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Bids</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {currentUser?.role === "vendor" ? "My Bids" : "All Bids"}
+          </h1>
+          <p className="text-gray-600 text-sm mt-1">
+            {currentUser?.role === "vendor"
+              ? "Track and manage your submitted bids"
+              : "Review and manage all submitted bids"}
+          </p>
+        </div>
+        {currentUser?.role === "vendor" && (
+          <Link to="/tenders">
+            <Button variant="secondary">Submit New Bid</Button>
+          </Link>
+        )}
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Vendor
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Amount
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Score
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Submitted
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                Action
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {bids.map((bid: Bid) => (
-              <tr key={bid.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  {bid.vendorName}
-                </td>
-                <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                  {formatCurrency(bid.amount, bid.currency)}
-                </td>
-                <td className="px-6 py-4 text-sm">
-                  <Badge label={bid.status.toUpperCase()} status={bid.status} />
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  {bid.evaluationScore ? `${bid.evaluationScore}/100` : "-"}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-600">
-                  {formatDate(bid.createdAt)}
-                </td>
-                <td className="px-6 py-4 text-sm">
-                  <Link
-                    to={`/bids/${bid.id}`}
-                    className="text-secondary hover:underline font-medium"
-                  >
-                    View
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="bg-white rounded-lg shadow p-4">
+          <p className="text-gray-600 text-xs font-medium uppercase">
+            Total Bids
+          </p>
+          <p className="text-2xl font-bold text-gray-900 mt-2">{stats.total}</p>
+        </div>
+        <div className="bg-blue-50 rounded-lg shadow p-4">
+          <p className="text-blue-700 text-xs font-medium uppercase">
+            Submitted
+          </p>
+          <p className="text-2xl font-bold text-blue-900 mt-2">
+            {stats.submitted}
+          </p>
+        </div>
+        <div className="bg-purple-50 rounded-lg shadow p-4">
+          <p className="text-purple-700 text-xs font-medium uppercase">
+            Evaluated
+          </p>
+          <p className="text-2xl font-bold text-purple-900 mt-2">
+            {stats.evaluated}
+          </p>
+        </div>
+        <div className="bg-green-50 rounded-lg shadow p-4">
+          <p className="text-green-700 text-xs font-medium uppercase">
+            Awarded
+          </p>
+          <p className="text-2xl font-bold text-green-900 mt-2">
+            {stats.awarded}
+          </p>
+        </div>
+        <div className="bg-red-50 rounded-lg shadow p-4">
+          <p className="text-red-700 text-xs font-medium uppercase">Rejected</p>
+          <p className="text-2xl font-bold text-red-900 mt-2">
+            {stats.rejected}
+          </p>
+        </div>
       </div>
+
+      {/* Filter */}
+      <div className="bg-white rounded-lg shadow p-4 flex items-center gap-2">
+        <Filter size={18} className="text-gray-600" />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary text-sm"
+        >
+          <option value="all">All Status</option>
+          <option value="draft">Draft</option>
+          <option value="submitted">Submitted</option>
+          <option value="evaluated">Evaluated</option>
+          <option value="awarded">Awarded</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+
+      {/* Bids Table */}
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
+        {filteredBids.length === 0 ? (
+          <div className="p-12 text-center">
+            <p className="text-gray-500">
+              {currentUser?.role === "vendor"
+                ? "You haven't submitted any bids yet"
+                : "No bids found"}
+            </p>
+            {currentUser?.role === "vendor" && (
+              <Link
+                to="/tenders"
+                className="text-secondary hover:underline mt-2 inline-block"
+              >
+                View Available Tenders
+              </Link>
+            )}
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                  {currentUser?.role === "vendor" ? "Tender" : "Vendor"}
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                  Bid Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                  Score
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                  Submitted
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filteredBids.map((bid: Bid) => (
+                <tr key={bid.id} className="hover:bg-gray-50 transition">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    {currentUser?.role === "vendor"
+                      ? bid.tenderId
+                      : bid.vendorName}
+                  </td>
+                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                    {formatCurrency(bid.amount, bid.currency)}
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    <span
+                      className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(bid.status)}`}
+                    >
+                      {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {bid.evaluationScore ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${
+                              bid.evaluationScore >= 80
+                                ? "bg-green-500"
+                                : bid.evaluationScore >= 60
+                                  ? "bg-yellow-500"
+                                  : "bg-red-500"
+                            }`}
+                            style={{
+                              width: `${Math.min(bid.evaluationScore, 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="font-medium">
+                          {bid.evaluationScore}/100
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">Pending</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {formatDate(bid.createdAt)}
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    <Link
+                      to={`/bids/${bid.id}`}
+                      className="inline-flex items-center gap-2 px-3 py-1 bg-secondary text-white rounded hover:bg-blue-600 transition text-xs font-medium"
+                    >
+                      <Eye size={16} />
+                      View
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Help Section */}
+      {currentUser?.role === "vendor" && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 className="font-semibold text-blue-900 mb-3">
+            📊 Bid Tracking Guide
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
+            <div>
+              <p className="font-medium">Draft</p>
+              <p>Bid hasn't been submitted yet</p>
+            </div>
+            <div>
+              <p className="font-medium">Submitted</p>
+              <p>Bid successfully submitted and awaiting evaluation</p>
+            </div>
+            <div>
+              <p className="font-medium">Evaluated</p>
+              <p>Your bid has been scored and is under consideration</p>
+            </div>
+            <div>
+              <p className="font-medium">Awarded / Rejected</p>
+              <p>Final decision has been made on your bid</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

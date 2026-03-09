@@ -3,7 +3,16 @@ import storageService from '@firebase/storage';
 import { Tender } from '@types';
 
 export class TenderService {
-  async createTender(data: Omit<Tender, 'id' | 'createdAt' | 'updatedAt' | 'bidCount'>): Promise<string> {
+  /**
+   * Create a new tender (only buyers/procurement entities can do this)
+   * @throws Error if user is not authorized
+   */
+  async createTender(data: Omit<Tender, 'id' | 'createdAt' | 'updatedAt' | 'bidCount'>, userRole?: string): Promise<string> {
+    // Verify authorization
+    if (userRole && userRole !== 'buyer' && userRole !== 'admin') {
+      throw new Error('Only procurement entities can create tenders. Bidders cannot create tenders.');
+    }
+
     return firestoreService.addDocument('tenders', {
       ...data,
       bidCount: 0,

@@ -1,5 +1,5 @@
-import firestoreService from '@firebase/firestore';
-import storageService from '@firebase/storage';
+import firestoreService from '@/firebase/firestore';
+import storageService from '@/firebase/storage';
 import { Bid } from '@types';
 
 export class BidService {

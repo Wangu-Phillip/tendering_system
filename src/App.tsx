@@ -34,6 +34,7 @@ import TendersPage from "./pages/shared/TendersPage";
 import TenderDetailPage from "./pages/shared/TenderDetailPage";
 import BidsPage from "./pages/shared/BidsPage";
 import BidDetailPage from "./pages/shared/BidDetailPage";
+import BidSubmissionPage from "./pages/shared/BidSubmissionPage";
 import ProfilePage from "./pages/shared/ProfilePage";
 import AnalyticsPage from "./pages/shared/AnalyticsPage";
 
@@ -132,6 +133,10 @@ function App() {
               {/* Shared Pages */}
               <Route path="/tenders" element={<TendersPage />} />
               <Route path="/tenders/:id" element={<TenderDetailPage />} />
+              <Route
+                path="/bids/new/:tenderId"
+                element={<BidSubmissionPage />}
+              />
               <Route path="/bids" element={<BidsPage />} />
               <Route path="/bids/:id" element={<BidDetailPage />} />
               <Route path="/profile" element={<ProfilePage />} />
