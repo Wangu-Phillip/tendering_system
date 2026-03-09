@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, FileText, Eye, X, CheckCircle } from "lucide-react";
+import {
+  Search,
+  FileText,
+  Eye,
+  X,
+  CheckCircle,
+  Plus,
+  Edit2,
+  Trash2,
+} from "lucide-react";
 import tenderManagementService, {
   Tender,
   Contract,
@@ -21,6 +30,28 @@ export default function AdminTenderManagement() {
   const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
+
+  // Form modal state
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    procuringEntityId: "admin",
+    openDate: "",
+    closeDate: "",
+    budget: 0,
+    status: "draft" as
+      | "draft"
+      | "published"
+      | "closed"
+      | "evaluated"
+      | "awarded"
+      | "cancelled",
+    category: "",
+    documents: [] as string[],
+    evaluationCriteria: [] as any[],
+  });
 
   useEffect(() => {
     loadData();
@@ -129,6 +160,135 @@ export default function AdminTenderManagement() {
     }
   };
 
+  const openCreateForm = () => {
+    setIsEditing(false);
+    setFormData({
+      title: "",
+      description: "",
+      procuringEntityId: "admin",
+      openDate: "",
+      closeDate: "",
+      budget: 0,
+      status: "draft",
+      category: "",
+      documents: [],
+      evaluationCriteria: [],
+    });
+    setShowFormModal(true);
+  };
+
+  const openEditForm = (tender: Tender) => {
+    setIsEditing(true);
+    setFormData({
+      title: tender.title,
+      description: tender.description,
+      procuringEntityId: tender.procuringEntityId,
+      openDate: tender.openDate.split("T")[0],
+      closeDate: tender.closeDate.split("T")[0],
+      budget: tender.budget,
+      status: tender.status,
+      category: tender.category,
+      documents: tender.documents,
+      evaluationCriteria: tender.evaluationCriteria,
+    });
+    setSelectedTender(tender);
+    setShowFormModal(true);
+  };
+
+  const handleFormChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "budget" ? parseFloat(value) || 0 : value,
+    }));
+  };
+
+  const handleCreateTender = async () => {
+    try {
+      if (
+        !formData.title ||
+        !formData.description ||
+        !formData.openDate ||
+        !formData.closeDate
+      ) {
+        setError("Please fill in all required fields");
+        return;
+      }
+
+      if (new Date(formData.closeDate) <= new Date(formData.openDate)) {
+        setError("Close date must be after open date");
+        return;
+      }
+
+      await tenderManagementService.createTender({
+        ...formData,
+        openDate: new Date(formData.openDate).toISOString(),
+        closeDate: new Date(formData.closeDate).toISOString(),
+      });
+
+      setShowFormModal(false);
+      setError(null);
+      await loadData();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  const handleEditTender = async () => {
+    if (!selectedTender) return;
+
+    try {
+      if (
+        !formData.title ||
+        !formData.description ||
+        !formData.openDate ||
+        !formData.closeDate
+      ) {
+        setError("Please fill in all required fields");
+        return;
+      }
+
+      if (new Date(formData.closeDate) <= new Date(formData.openDate)) {
+        setError("Close date must be after open date");
+        return;
+      }
+
+      await tenderManagementService.updateTender(selectedTender.id, {
+        ...formData,
+        openDate: new Date(formData.openDate).toISOString(),
+        closeDate: new Date(formData.closeDate).toISOString(),
+      });
+
+      setShowFormModal(false);
+      setError(null);
+      await loadData();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  const handleDeleteTender = async (tenderId: string) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this tender? This action cannot be undone.",
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await tenderManagementService.deleteTender(tenderId);
+      setError(null);
+      await loadData();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
   if (loading) return <Loading />;
 
   return (
@@ -175,7 +335,7 @@ export default function AdminTenderManagement() {
         <>
           {/* Filters */}
           <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Search
@@ -214,10 +374,13 @@ export default function AdminTenderManagement() {
                 </select>
               </div>
 
-              <div className="flex items-end">
-                <button className="w-full px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
-                  <Filter size={18} />
-                  More Filters
+              <div className="flex items-end gap-2">
+                <button
+                  onClick={openCreateForm}
+                  className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition-colors flex items-center justify-center gap-2 font-medium"
+                >
+                  <Plus size={18} />
+                  Create Tender
                 </button>
               </div>
             </div>
@@ -276,15 +439,32 @@ export default function AdminTenderManagement() {
                           {new Date(tender.closeDate).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 text-sm">
-                          <button
-                            onClick={() => {
-                              setSelectedTender(tender);
-                              setShowModal(true);
-                            }}
-                            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-                          >
-                            <Eye size={18} />
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedTender(tender);
+                                setShowModal(true);
+                              }}
+                              className="p-2 hover:bg-blue-100 rounded-lg transition-colors text-blue-600"
+                              title="View"
+                            >
+                              <Eye size={18} />
+                            </button>
+                            <button
+                              onClick={() => openEditForm(tender)}
+                              className="p-2 hover:bg-amber-100 rounded-lg transition-colors text-amber-600"
+                              title="Edit"
+                            >
+                              <Edit2 size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTender(tender.id)}
+                              className="p-2 hover:bg-red-100 rounded-lg transition-colors text-red-600"
+                              title="Delete"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -473,6 +653,145 @@ export default function AdminTenderManagement() {
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tender Form Modal */}
+      {showFormModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-6">
+              <h3 className="text-xl font-bold text-primary">
+                {isEditing ? "Edit Tender" : "Create New Tender"}
+              </h3>
+              <button
+                onClick={() => setShowFormModal(false)}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tender Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleFormChange}
+                  placeholder="Enter tender title"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleFormChange}
+                  placeholder="Enter tender description"
+                  rows={4}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category
+                  </label>
+                  <input
+                    type="text"
+                    name="category"
+                    value={formData.category}
+                    onChange={handleFormChange}
+                    placeholder="e.g., Construction, IT, Services"
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Budget (BWP)
+                  </label>
+                  <input
+                    type="number"
+                    name="budget"
+                    value={formData.budget}
+                    onChange={handleFormChange}
+                    placeholder="0"
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Open Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    name="openDate"
+                    value={formData.openDate}
+                    onChange={handleFormChange}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Close Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    name="closeDate"
+                    value={formData.closeDate}
+                    onChange={handleFormChange}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                  />
+                </div>
+              </div>
+
+              {!isEditing && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Status
+                  </label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleFormChange}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="published">Published</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowFormModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={isEditing ? handleEditTender : handleCreateTender}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition-colors font-medium"
+              >
+                {isEditing ? "Update Tender" : "Create Tender"}
               </button>
             </div>
           </div>

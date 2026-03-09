@@ -8,6 +8,8 @@ import {
   doc,
   getDoc,
   orderBy,
+  addDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 
 export interface Tender {
@@ -148,6 +150,30 @@ class TenderManagementService {
       });
     } catch (error) {
       console.error('Error cancelling tender:', error);
+      throw error;
+    }
+  }
+
+  async createTender(tenderData: Omit<Tender, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    try {
+      const tendersRef = collection(db, 'tenders');
+      const docRef = await addDoc(tendersRef, {
+        ...tenderData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error('Error creating tender:', error);
+      throw error;
+    }
+  }
+
+  async deleteTender(tenderId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, 'tenders', tenderId));
+    } catch (error) {
+      console.error('Error deleting tender:', error);
       throw error;
     }
   }
