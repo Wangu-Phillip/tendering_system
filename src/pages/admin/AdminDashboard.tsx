@@ -251,48 +251,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Quick Access Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
-          <h3 className="font-bold text-gray-900 mb-2">User Management</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Manage all users, roles, and permissions
-          </p>
-          <button className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium">
-            Manage Users
-          </button>
-        </div>
-
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
-          <h3 className="font-bold text-gray-900 mb-2">Bid Processing</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Validate and process bids
-          </p>
-          <button className="inline-flex items-center px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors text-sm font-medium">
-            Process Bids
-          </button>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
-          <h3 className="font-bold text-gray-900 mb-2">Tender Management</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Oversee all tenders and evaluations
-          </p>
-          <button className="inline-flex items-center px-4 py-2 bg-success text-white rounded-lg hover:bg-success/90 transition-colors text-sm font-medium">
-            Manage Tenders
-          </button>
-        </div>
-
-        <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-6 border border-amber-200">
-          <h3 className="font-bold text-gray-900 mb-2">System Monitoring</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            View audit logs and system health
-          </p>
-          <button className="inline-flex items-center px-4 py-2 bg-warning text-white rounded-lg hover:bg-warning/90 transition-colors text-sm font-medium">
-            View Logs
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
