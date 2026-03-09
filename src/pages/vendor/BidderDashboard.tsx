@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, Filter } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 
 export default function BidderDashboard() {
   const [searchTerm, setSearchTerm] = useState("");

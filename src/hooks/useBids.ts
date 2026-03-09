@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import firestoreService from '@firebase/firestore';
+import firestoreService from '@/firebase/firestore';
 import { Bid } from '@types';
 
 export const useBids = (filters?: Record<string, any>) => {

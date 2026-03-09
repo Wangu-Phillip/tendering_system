@@ -8,8 +8,9 @@ import {
   EyeOff,
   Clock,
   ArrowRight,
+  X,
 } from "lucide-react";
-import authService from "@firebase/auth";
+import authService from "@/firebase/auth";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -17,6 +18,13 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +38,32 @@ export default function LoginPage() {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotMessage(null);
+    setForgotLoading(true);
+
+    try {
+      await authService.sendPasswordReset(forgotEmail);
+      setForgotMessage({
+        type: "success",
+        text: "Password reset email sent! Check your inbox.",
+      });
+      setForgotEmail("");
+      setTimeout(() => {
+        setShowForgotPassword(false);
+        setForgotMessage(null);
+      }, 3000);
+    } catch (err) {
+      setForgotMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to send reset email",
+      });
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -133,6 +167,7 @@ export default function LoginPage() {
                   </label>
                   <button
                     type="button"
+                    onClick={() => setShowForgotPassword(true)}
                     className="text-xs text-secondary hover:text-blue-700 font-medium transition-colors"
                   >
                     Forgot password?
@@ -210,6 +245,97 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900">
+                Reset Password
+              </h3>
+              <button
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotMessage(null);
+                  setForgotEmail("");
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-gray-600 text-sm mb-4">
+                Enter your email address and we'll send you a link to reset your
+                password.
+              </p>
+
+              {forgotMessage && (
+                <div
+                  className={`rounded-lg p-3 text-sm mb-4 ${
+                    forgotMessage.type === "success"
+                      ? "bg-green-50 text-green-700 border border-green-200"
+                      : "bg-red-50 text-red-700 border border-red-200"
+                  }`}
+                >
+                  {forgotMessage.text}
+                </div>
+              )}
+
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="forgotEmail"
+                    className="block text-sm font-medium text-gray-700 mb-1.5"
+                  >
+                    Email Address
+                  </label>
+                  <input
+                    id="forgotEmail"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary transition-all"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="w-full bg-primary text-white py-3 rounded-lg hover:bg-primary/90 transition-all font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {forgotLoading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                      Sending...
+                    </span>
+                  ) : (
+                    "Send Reset Link"
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setForgotMessage(null);
+                    setForgotEmail("");
+                  }}
+                  className="w-full border border-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-50 transition-all font-semibold text-sm"
+                >
+                  Cancel
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

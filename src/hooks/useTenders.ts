@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import firestoreService from '@firebase/firestore';
+import firestoreService from '@/firebase/firestore';
 import { Tender } from '@types';
 
 export const useTenders = (filters?: Record<string, any>) => {

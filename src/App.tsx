@@ -5,7 +5,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { useEffect, useState } from "react";
-import authService from "@firebase/auth";
+import authService from "@/firebase/auth";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -14,6 +14,7 @@ import LandingPage from "./pages/LandingPage";
 
 // Public Pages
 import LoginPage from "./pages/public/LoginPage";
+import CreateAccountPage from "./pages/public/CreateAccountPage";
 import ContactPage from "./pages/public/ContactPage";
 import NotFoundPage from "./pages/public/NotFoundPage";
 
@@ -92,6 +93,16 @@ function App() {
           path="/login"
           element={
             currentUser ? <Navigate to="/dashboard" replace /> : <LoginPage />
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            currentUser ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <CreateAccountPage />
+            )
           }
         />
         <Route path="/contact" element={<ContactPage />} />

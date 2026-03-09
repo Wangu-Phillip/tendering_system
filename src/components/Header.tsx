@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
-import authService from "@firebase/auth";
+import authService from "@/firebase/auth";
 import { useState } from "react";
+import { LogOut } from "lucide-react";
 
 interface HeaderProps {
   user: any | null;
@@ -9,13 +10,19 @@ interface HeaderProps {
 export default function Header({ user }: HeaderProps) {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
     try {
+      setIsLoggingOut(true);
       await authService.logout();
-      navigate("/login");
+      // Give Firebase a moment to update state
+      setTimeout(() => {
+        navigate("/login", { replace: true });
+      }, 100);
     } catch (error) {
       console.error("Logout failed:", error);
+      setIsLoggingOut(false);
     }
   };
 
@@ -71,7 +78,7 @@ export default function Header({ user }: HeaderProps) {
               {user?.displayName?.charAt(0).toUpperCase() || "U"}
             </button>
             {showMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl">
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-50">
                 <Link
                   to="/profile"
                   className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -82,11 +89,12 @@ export default function Header({ user }: HeaderProps) {
                 <button
                   onClick={() => {
                     handleLogout();
-                    setShowMenu(false);
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  disabled={isLoggingOut}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  Logout
+                  <LogOut size={16} />
+                  {isLoggingOut ? "Logging out..." : "Logout"}
                 </button>
               </div>
             )}
