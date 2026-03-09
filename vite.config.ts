@@ -15,7 +15,7 @@ export default defineConfig({
       '@utils': path.resolve(__dirname, './src/utils'),
       '@types': path.resolve(__dirname, './src/types/index.ts'),
       '@context': path.resolve(__dirname, './src/context'),
-      '@firebase': path.resolve(__dirname, './src/firebase'),
+      // '@firebase': path.resolve(__dirname, './src/firebase'),
     },
   },
   server: {

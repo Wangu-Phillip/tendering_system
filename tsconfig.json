@@ -39,9 +39,7 @@
       "@types": ["src/types/index.ts"],
       "@types/*": ["src/types/*"],
       "@context": ["src/context"],
-      "@context/*": ["src/context/*"],
-      "@firebase": ["src/firebase"],
-      "@firebase/*": ["src/firebase/*"]
+      "@context/*": ["src/context/*"]
     }
   },
   "include": ["src", "vite-env.d.ts"],
