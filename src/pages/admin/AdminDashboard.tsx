@@ -1,131 +1,178 @@
-import { useState } from "react";
-import { Users, TrendingUp, AlertCircle, Search, Filter } from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+  Users,
+  TrendingUp,
+  Search,
+  Filter,
+  FileText,
+  CheckCircle,
+  BarChart3,
+  UserCheck,
+} from "lucide-react";
+import adminService, { SystemActivity } from "@/services/adminService";
+import { useAuth } from "@/context/AuthContext";
+import Loading from "@/components/Loading";
+import Error from "@/components/Error";
+
+interface SystemStats {
+  totalUsers: number;
+  totalBidders: number;
+  totalProcuringEntities: number;
+  totalTenders: number;
+  totalBids: number;
+  totalContracts: number;
+}
 
 export default function AdminDashboard() {
+  const { currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
+  const [stats, setStats] = useState<SystemStats | null>(null);
+  const [activities, setActivities] = useState<SystemActivity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch system stats and activities in parallel
+      const [statsData, activitiesData] = await Promise.all([
+        adminService.getSystemStats(),
+        adminService.getSystemActivities(10),
+      ]);
+
+      setStats(statsData);
+      setActivities(activitiesData);
+    } catch (err) {
+      const errorMessage =
+        err && typeof err === "object" && "message" in err
+          ? String((err as any).message)
+          : "Failed to load dashboard data";
+      setError(errorMessage);
+      console.error("Dashboard load error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const systemStats = [
-    { label: "Total Users", value: "245", icon: Users, color: "text-primary" },
     {
-      label: "Active Tenders",
-      value: "18",
+      label: "Total Users",
+      value: stats?.totalUsers || 0,
+      icon: Users,
+      color: "text-primary",
+      bgColor: "bg-blue-50",
+    },
+    {
+      label: "Bidders",
+      value: stats?.totalBidders || 0,
       icon: TrendingUp,
       color: "text-secondary",
+      bgColor: "bg-purple-50",
+    },
+    {
+      label: "Procuring Entities",
+      value: stats?.totalProcuringEntities || 0,
+      icon: Users,
+      color: "text-success",
+      bgColor: "bg-green-50",
+    },
+    {
+      label: "Active Tenders",
+      value: stats?.totalTenders || 0,
+      icon: FileText,
+      color: "text-warning",
+      bgColor: "bg-amber-50",
     },
     {
       label: "Total Bids",
-      value: "342",
-      icon: AlertCircle,
-      color: "text-success",
+      value: stats?.totalBids || 0,
+      icon: CheckCircle,
+      color: "text-info",
+      bgColor: "bg-sky-50",
     },
     {
-      label: "Contracts Awarded",
-      value: "28",
-      icon: TrendingUp,
-      color: "text-warning",
+      label: "Awarded Contracts",
+      value: stats?.totalContracts || 0,
+      icon: BarChart3,
+      color: "text-danger",
+      bgColor: "bg-red-50",
     },
   ];
 
-  const recentUsers = [
-    {
-      id: 1,
-      name: "Acme Corporation",
-      email: "info@acme.com",
-      role: "buyer",
-      registeredDate: "2026-03-01",
-      status: "active",
-    },
-    {
-      id: 2,
-      name: "ABC Supplies Ltd",
-      email: "contact@abcsupplies.com",
-      role: "vendor",
-      registeredDate: "2026-03-02",
-      status: "active",
-    },
-    {
-      id: 3,
-      name: "Tech Design Co",
-      email: "hello@techdesign.com",
-      role: "vendor",
-      registeredDate: "2026-03-03",
-      status: "active",
-    },
-    {
-      id: 4,
-      name: "Global Services Inc",
-      email: "admin@globalservices.com",
-      role: "buyer",
-      registeredDate: "2026-03-04",
-      status: "pending",
-    },
-  ];
-
-  const systemLogs = [
-    {
-      id: 1,
-      action: "User Registration",
-      user: "ABC Supplies Ltd",
-      timestamp: "2026-03-05 10:30 AM",
-      status: "success",
-    },
-    {
-      id: 2,
-      action: "Tender Published",
-      user: "Acme Corporation",
-      timestamp: "2026-03-05 09:15 AM",
-      status: "success",
-    },
-    {
-      id: 3,
-      action: "Bid Submission",
-      user: "Tech Design Co",
-      timestamp: "2026-03-05 08:45 AM",
-      status: "success",
-    },
-    {
-      id: 4,
-      action: "User Suspended",
-      user: "Unknown Vendor",
-      timestamp: "2026-03-04 02:20 PM",
-      status: "warning",
-    },
-  ];
+  if (loading) {
+    return <Loading />;
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-primary">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-1">System Management & Monitoring</p>
+        {currentUser && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <UserCheck size={20} className="text-blue-600" />
+              <div>
+                <p className="text-sm font-medium text-gray-700">
+                  Logged in as:{" "}
+                  <span className="font-bold text-blue-900">
+                    {currentUser.displayName || currentUser.email}
+                  </span>
+                </p>
+                <p className="text-sm text-gray-600">
+                  Role:{" "}
+                  <span className="font-bold text-blue-600 uppercase">
+                    {currentUser.role || "N/A"}
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        <p className="text-gray-600 mt-1">System Overview & Monitoring</p>
       </div>
 
-      {/* System Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {error && <Error message={error} />}
+
+      {/* System Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {systemStats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <div key={index} className="bg-white rounded-lg shadow p-6">
+            <div
+              key={index}
+              className={`${stat.bgColor} rounded-xl border border-gray-200 p-6 transition-all hover:shadow-md`}
+            >
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-gray-600 text-sm">{stat.label}</p>
-                  <p className="text-3xl font-bold text-primary mt-2">
-                    {stat.value}
+                  <p className="text-gray-600 text-sm font-medium">
+                    {stat.label}
+                  </p>
+                  <p className="text-4xl font-bold text-primary mt-3">
+                    {stat.value.toLocaleString()}
                   </p>
                 </div>
-                <Icon className={`${stat.color}`} size={24} />
+                <div className={`${stat.color} p-3 rounded-lg bg-white/50`}>
+                  <Icon size={28} />
+                </div>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* User Management */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-primary">
-              User Management
+      {/* Recent System Activities */}
+      <div className="bg-white rounded-xl shadow border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-primary">
+              Recent System Activities
             </h2>
             <div className="flex gap-2">
               <div className="relative">
@@ -135,151 +182,115 @@ export default function AdminDashboard() {
                 />
                 <input
                   type="text"
-                  placeholder="Search users..."
+                  placeholder="Search activities..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary text-sm"
                 />
               </div>
-              <button className="p-2 border rounded-lg hover:bg-light transition-colors">
+              <button className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 <Filter size={18} />
               </button>
             </div>
           </div>
         </div>
+
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-light border-b">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-primary">
-                  Organization Name
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50">
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  Action
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-primary">
-                  Email
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  Entity Type
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-primary">
-                  Role
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  Description
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-primary">
-                  Registered
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-primary">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-primary">
-                  Actions
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  Timestamp
                 </th>
               </tr>
             </thead>
             <tbody>
-              {recentUsers.map((user) => (
-                <tr
-                  key={user.id}
-                  className="border-b hover:bg-light transition-colors"
-                >
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                    {user.name}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {user.email}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className="px-3 py-1 bg-secondary/20 text-secondary rounded-full text-xs font-semibold capitalize">
-                      {user.role === "buyer" ? "Procurement Entity" : "Bidder"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {user.registeredDate}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        user.status === "active"
-                          ? "bg-success/20 text-success"
-                          : "bg-warning/20 text-warning"
-                      }`}
-                    >
-                      {user.status === "active" ? "Active" : "Pending"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm space-x-2">
-                    <button className="text-secondary hover:text-blue-700 font-semibold">
-                      View
-                    </button>
-                    <button className="text-gray-600 hover:text-gray-900 font-semibold">
-                      Manage
-                    </button>
+              {activities.length > 0 ? (
+                activities.map((activity, index) => (
+                  <tr
+                    key={index}
+                    className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
+                  >
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                        {activity.action}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {activity.entityType}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {activity.description}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {new Date(activity.timestamp).toLocaleString()}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-6 py-8 text-center text-gray-500"
+                  >
+                    No activities recorded yet
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* System Logs */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-semibold text-primary">
-            System Activity Logs
-          </h2>
+      {/* Quick Access Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
+          <h3 className="font-bold text-gray-900 mb-2">User Management</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Manage all users, roles, and permissions
+          </p>
+          <button className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium">
+            Manage Users
+          </button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-light border-b">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-primary">
-                  Action
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-primary">
-                  User/Entity
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-primary">
-                  Timestamp
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-primary">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-primary">
-                  Details
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {systemLogs.map((log) => (
-                <tr
-                  key={log.id}
-                  className="border-b hover:bg-light transition-colors"
-                >
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                    {log.action}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {log.user}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {log.timestamp}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        log.status === "success"
-                          ? "bg-success/20 text-success"
-                          : "bg-warning/20 text-warning"
-                      }`}
-                    >
-                      {log.status === "success" ? "Success" : "Warning"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <button className="text-secondary hover:text-blue-700 font-semibold">
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
+          <h3 className="font-bold text-gray-900 mb-2">Bid Processing</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Validate and process bids
+          </p>
+          <button className="inline-flex items-center px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors text-sm font-medium">
+            Process Bids
+          </button>
+        </div>
+
+        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
+          <h3 className="font-bold text-gray-900 mb-2">Tender Management</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Oversee all tenders and evaluations
+          </p>
+          <button className="inline-flex items-center px-4 py-2 bg-success text-white rounded-lg hover:bg-success/90 transition-colors text-sm font-medium">
+            Manage Tenders
+          </button>
+        </div>
+
+        <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-6 border border-amber-200">
+          <h3 className="font-bold text-gray-900 mb-2">System Monitoring</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            View audit logs and system health
+          </p>
+          <button className="inline-flex items-center px-4 py-2 bg-warning text-white rounded-lg hover:bg-warning/90 transition-colors text-sm font-medium">
+            View Logs
+          </button>
         </div>
       </div>
     </div>

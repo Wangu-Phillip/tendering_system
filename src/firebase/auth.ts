@@ -14,7 +14,7 @@ export interface AuthUser {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  role?: 'admin' | 'bidder' | 'procurement_entity';
+  role?: 'admin' | 'vendor' | 'buyer';
 }
 
 export class AuthService {
@@ -23,20 +23,46 @@ export class AuthService {
 
   constructor() {
     // Listen to Firebase auth state changes
-    onAuthStateChanged(auth, (firebaseUser: User | null) => {
+    onAuthStateChanged(auth, async (firebaseUser: User | null) => {
       if (firebaseUser) {
+        // Fetch the role from Firestore
+        const role = await this.getUserRoleFromFirestore(firebaseUser.uid);
         this.currentUser = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
           photoURL: firebaseUser.photoURL,
-          role: 'bidder', // Default role - update based on user profile in Firestore
+          role: role || 'vendor', // Default to 'vendor' if not found
         };
       } else {
         this.currentUser = null;
       }
       this.notifyListeners(this.currentUser);
     });
+  }
+
+  private async getUserRoleFromFirestore(uid: string): Promise<'admin' | 'vendor' | 'buyer' | null> {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        const role = data.role as string;
+        // Map role names if needed (e.g., 'vendor' instead of 'bidder')
+        if (role === 'admin' || role === 'vendor' || role === 'buyer') {
+          return role;
+        }
+        if (role === 'bidder') {
+          return 'vendor';
+        }
+        if (role === 'procurement_entity') {
+          return 'buyer';
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching user role from Firestore:', error);
+      return null;
+    }
   }
 
   async register(email: string, password: string, displayName?: string, organizationName?: string, role?: string): Promise<AuthUser> {
@@ -51,7 +77,7 @@ export class AuthService {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
       
-      const userRole = (role || 'bidder') as 'admin' | 'bidder' | 'procurement_entity';
+      const userRole = (role || 'vendor') as 'admin' | 'vendor' | 'buyer';
       
       const newUser: AuthUser = {
         uid,
@@ -91,12 +117,17 @@ export class AuthService {
   async login(email: string, password: string): Promise<AuthUser> {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+      
+      // Fetch the role from Firestore
+      const role = await this.getUserRoleFromFirestore(uid);
+      
       const user: AuthUser = {
-        uid: userCredential.user.uid,
+        uid: uid,
         email: userCredential.user.email,
         displayName: userCredential.user.displayName,
         photoURL: userCredential.user.photoURL,
-        role: 'bidder', // Default role - fetch from Firestore if needed
+        role: role || 'vendor',
       };
       this.currentUser = user;
       this.notifyListeners(user);

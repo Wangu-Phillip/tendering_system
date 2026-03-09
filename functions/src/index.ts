@@ -1,42 +1,38 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { QueryDocumentSnapshot, DocumentSnapshot } from 'firebase-admin/firestore';
-import { EventContext } from 'firebase-functions';
 
 admin.initializeApp();
 const db = admin.firestore();
 
-// Example: Trigger when a tender is created
+// Trigger when a tender is created
 export const onTenderCreated = functions.firestore
-  .document('tenders/{tenderId}')
-  .onCreate(async (snap: QueryDocumentSnapshot, context: EventContext) => {
-    const tender = snap.data();
+  .onDocumentCreated('tenders/{tenderId}', async (event) => {
+    const tender = event.data?.data();
     console.log('New tender created:', tender);
     // Add custom logic here
   });
 
-// Example: Trigger when a bid is submitted
-export const onBidSubmitted = functions.firestore
-  .document('bids/{bidId}')
-  .onUpdate(async (change: functions.Change<QueryDocumentSnapshot>, context: EventContext) => {
-    const newBid = change.after.data();
-    const oldBid = change.before.data();
+// Trigger when a bid is submitted
+export const onBidUpdated = functions.firestore
+  .onDocumentUpdated('bids/{bidId}', async (event) => {
+    const newBid = event.data?.after.data();
+    const oldBid = event.data?.before.data();
 
-    if (newBid.status === 'submitted' && oldBid.status !== 'submitted') {
+    if (newBid?.status === 'submitted' && oldBid?.status !== 'submitted') {
       console.log('Bid submitted:', newBid);
       // Add notification logic here
     }
   });
 
-// Example: Calculate average bid price
+// Calculate average bid price when bids change
 export const calculateBidStats = functions.firestore
-  .document('bids/{bidId}')
-  .onWrite(async (change: functions.Change<functions.firestore.DocumentSnapshot>, context: EventContext) => {
-    const tenderId = change.after.data()?.tenderId;
+  .onDocumentWritten('bids/{bidId}', async (event) => {
+    const bidData = event.data?.after.data();
+    const tenderId = bidData?.tenderId;
     if (!tenderId) return;
 
     const bidsSnapshot = await db.collection('bids').where('tenderId', '==', tenderId).get();
-    const bids = bidsSnapshot.docs.map((doc: QueryDocumentSnapshot) => doc.data());
+    const bids = bidsSnapshot.docs.map((doc) => doc.data());
     
     const amounts = bids
       .filter((bid: any) => bid.status === 'submitted')

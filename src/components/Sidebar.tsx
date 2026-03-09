@@ -38,7 +38,6 @@ export default function Sidebar({ isOpen, onToggle, userRole }: SidebarProps) {
           ...commonItems,
           { label: "Bids", href: "/bids" },
           { label: "Analytics", href: "/analytics" },
-          { label: "Users", href: "/dashboard" },
           { label: "Profile", href: "/profile" },
         ];
       default:
