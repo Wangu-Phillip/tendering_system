@@ -4,7 +4,7 @@ import { useTenders } from "@hooks/useTenders";
 import Loading from "@components/Loading";
 import Error from "@components/Error";
 import Badge from "@components/Badge";
-import { formatCurrency, formatDate } from "@utils/formatters";
+import { formatCurrency, formatDate, formatDateTime } from "@utils/formatters";
 import { Tender } from "@types";
 
 export default function TendersPage() {
@@ -100,7 +100,7 @@ export default function TendersPage() {
                 <div>
                   <p className="text-gray-600">Deadline</p>
                   <p className="font-semibold text-gray-900">
-                    {formatDate(tender.deadline)}
+                    {formatDateTime(tender.deadline)}
                   </p>
                 </div>
                 <div>

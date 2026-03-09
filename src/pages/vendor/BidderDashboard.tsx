@@ -31,9 +31,11 @@ export default function BidderDashboard() {
   // Filter user's bids
   const myBids = bids.filter((bid: Bid) => bid.vendorId === currentUser?.uid);
 
-  // Filter open tenders
+  // Filter open tenders - check for both 'open' status and 'published' status (from admin-created tenders)
   const openTenders = tenders.filter(
-    (tender: Tender) => tender.status === "open",
+    (tender: Tender) =>
+      (tender as any).status === "open" ||
+      (tender as any).status === "published",
   );
 
   // Filter tenders by search and category
@@ -41,8 +43,9 @@ export default function BidderDashboard() {
     const matchesSearch =
       tender.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tender.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const tenderCategory = (tender as any).category || "";
     const matchesCategory =
-      filterCategory === "all" || tender.category === filterCategory;
+      filterCategory === "all" || tenderCategory === filterCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -66,7 +69,11 @@ export default function BidderDashboard() {
 
   // Get unique categories
   const categories = Array.from(
-    new Set(tenders.map((t: Tender) => t.category)),
+    new Set(
+      tenders
+        .map((t: Tender) => (t as any).category || "")
+        .filter((cat) => cat !== ""),
+    ),
   ).sort();
 
   if (tendersLoading || bidsLoading)
@@ -330,28 +337,36 @@ export default function BidderDashboard() {
                     <span className="text-gray-600">
                       Budget:{" "}
                       <span className="font-medium">
-                        {formatCurrency(tender.budget, tender.currency)}
+                        {formatCurrency(
+                          tender.budget,
+                          (tender as any).currency || "BWP",
+                        )}
                       </span>
                     </span>
                     <span className="text-gray-600">
                       Category:{" "}
-                      <span className="font-medium">{tender.category}</span>
+                      <span className="font-medium">
+                        {(tender as any).category || "N/A"}
+                      </span>
                     </span>
                     <span className="text-gray-600">
                       Deadline:{" "}
                       <span className="font-medium">
-                        {formatDate(tender.deadline, "short")}
+                        {formatDate(
+                          (tender as any).closeDate || (tender as any).deadline,
+                          "short",
+                        )}
                       </span>
                     </span>
                   </div>
                 </div>
                 <div className="ml-4 flex flex-col items-end gap-2">
                   <Badge
-                    label={tender.status.toUpperCase()}
-                    status={tender.status}
+                    label={(tender as any).status?.toUpperCase() || "DRAFT"}
+                    status={(tender as any).status || "draft"}
                   />
                   <span className="text-xs text-gray-500">
-                    {tender.bidCount} bids
+                    {(tender as any).bidCount || 0} bids
                   </span>
                 </div>
               </Link>
