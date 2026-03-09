@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AlertCircle, Check, Upload, X } from "lucide-react";
+import { AlertCircle, Check, Upload, X, Loader } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTenderDetail } from "@hooks/useTenders";
 import bidService from "@services/bidService";
@@ -124,7 +124,7 @@ export default function BidSubmissionPage() {
         setUploadingFiles(false);
       }
 
-      // Create bid
+      // Create bid with status already set to "submitted"
       const bidData: Omit<Bid, "id" | "createdAt" | "updatedAt"> = {
         tenderId: tender.id,
         vendorId: currentUser.uid,
@@ -135,16 +135,10 @@ export default function BidSubmissionPage() {
         description: formData.description.trim(),
         attachments: attachmentUrls,
         status: "submitted",
-        evaluationScore: undefined,
-        feedback: undefined,
       };
 
-      const bidId = await bidService.createBid(bidData);
-
-      // Mark bid as submitted
-      if (bidId) {
-        await bidService.submitBid(bidId);
-      }
+      // Submit the bid (already created with status "submitted")
+      await bidService.createBid(bidData);
 
       setSuccessMessage("Bid submitted successfully!");
       setTimeout(() => {
@@ -164,7 +158,10 @@ export default function BidSubmissionPage() {
     return <Error message="You must be logged in to submit a bid" />;
 
   // Check if tender is still open
-  const tenderDeadline = new Date(tender.deadline);
+  const tenderStatus = (tender as any).status || tender.status;
+  const tenderDeadline = new Date(
+    (tender as any).closeDate || (tender as any).deadline || tender.deadline,
+  );
   const isDeadlinePassed = tenderDeadline < new Date();
   const daysUntilDeadline = Math.ceil(
     (tenderDeadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
@@ -178,10 +175,24 @@ export default function BidSubmissionPage() {
           <h1 className="text-3xl font-bold text-gray-900">Submit Bid</h1>
           <p className="text-gray-600 mt-2">{tender.title}</p>
         </div>
-        <Badge label={tender.status.toUpperCase()} status={tender.status} />
+        <Badge label={tenderStatus.toUpperCase()} status={tenderStatus} />
       </div>
 
       {/* Messages */}
+      {loading && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+          <Loader className="text-blue-600 animate-spin" size={20} />
+          <div>
+            <p className="font-medium text-blue-900">Submitting your bid...</p>
+            <p className="text-sm text-blue-800">
+              {uploadingFiles
+                ? "Uploading documents..."
+                : "Please wait while we submit your bid"}
+            </p>
+          </div>
+        </div>
+      )}
+
       {successMessage && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
           <Check className="text-green-600" size={20} />
@@ -213,14 +224,17 @@ export default function BidSubmissionPage() {
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
+            {tender.budget}, {(tender as any).currency || tender.currency}
             <p className="text-gray-600 text-sm">Budget</p>
             <p className="text-lg font-bold text-primary">
               {formatCurrency(tender.budget, tender.currency)}
             </p>
           </div>
+          {(tender as any).category || tender.category}
+
           <div>
             <p className="text-gray-600 text-sm">Category</p>
-            <p className="font-semibold text-gray-900">{tender.category}</p>
+            <p className="font-sDibold text-gray-900">{tender.category}</p>
           </div>
           <div>
             <p className="text-gray-600 text-sm">Deadline</p>

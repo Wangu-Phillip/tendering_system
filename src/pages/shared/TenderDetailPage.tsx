@@ -18,13 +18,21 @@ export default function TenderDetailPage() {
   if (error) return <Error message={error} />;
   if (!tender) return <Error message="Tender not found" />;
 
-  const isTenderOpen = tender.status === "open";
-  const tenderDeadline = new Date(tender.deadline);
+  const isVendor = currentUser?.role === "vendor";
+
+  // Handle both tender types (from tenderManagementService and legacy Tender type)
+  const tenderStatus = (tender as any).status || tender.status;
+  const tenderDeadline = new Date(
+    (tender as any).closeDate || (tender as any).deadline || tender.deadline,
+  );
+  const isTenderOpen =
+    tenderStatus === "open" ||
+    tenderStatus === "published" ||
+    tenderStatus === "draft";
   const isDeadlinePassed = tenderDeadline < new Date();
   const daysUntilDeadline = Math.ceil(
     (tenderDeadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
   );
-  const isVendor = currentUser?.role === "vendor";
 
   const handleSubmitBid = () => {
     if (!currentUser) {
@@ -42,7 +50,7 @@ export default function TenderDetailPage() {
           <h1 className="text-3xl font-bold text-gray-900">{tender.title}</h1>
           <p className="text-gray-600 mt-2">{tender.description}</p>
         </div>
-        <Badge label={tender.status.toUpperCase()} status={tender.status} />
+        <Badge label={tenderStatus.toUpperCase()} status={tenderStatus} />
       </div>
 
       {/* Deadline Warning */}
@@ -81,17 +89,22 @@ export default function TenderDetailPage() {
             <div>
               <p className="text-gray-600 text-sm">Budget</p>
               <p className="text-2xl font-bold text-primary">
-                {formatCurrency(tender.budget, tender.currency)}
+                {formatCurrency(
+                  tender.budget,
+                  (tender as any).currency || tender.currency,
+                )}
               </p>
             </div>
             <div>
               <p className="text-gray-600 text-sm">Category</p>
-              <p className="font-semibold text-gray-900">{tender.category}</p>
+              <p className="font-semibold text-gray-900">
+                {(tender as any).category || tender.category}
+              </p>
             </div>
             <div>
               <p className="text-gray-600 text-sm">Deadline</p>
               <p className="font-semibold text-gray-900">
-                {formatDate(tender.deadline, "long")}
+                {formatDate(tenderDeadline, "long")}
               </p>
               <p
                 className={`text-sm mt-1 font-medium ${
@@ -107,7 +120,9 @@ export default function TenderDetailPage() {
             </div>
             <div>
               <p className="text-gray-600 text-sm">Total Bids</p>
-              <p className="font-semibold text-gray-900">{tender.bidCount}</p>
+              <p className="font-semibold text-gray-900">
+                {tender.bidCount || 0}
+              </p>
             </div>
           </div>
         </div>
