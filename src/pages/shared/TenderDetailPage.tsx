@@ -18,7 +18,7 @@ export default function TenderDetailPage() {
   if (error) return <Error message={error} />;
   if (!tender) return <Error message="Tender not found" />;
 
-  const isVendor = currentUser?.role === "bidder";
+  const isVendor = currentUser?.role === "vendor";
 
   // Handle both tender types (from tenderManagementService and legacy Tender type)
   const tenderStatus = (tender as any).status || tender.status;

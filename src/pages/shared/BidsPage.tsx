@@ -24,7 +24,7 @@ export default function BidsPage() {
   // Filter bids based on user role and status
   const filteredBids = bids.filter((bid: Bid) => {
     // If user is a bidder, show only their bids
-    if (currentUser?.role === "bidder") {
+    if (currentUser?.role === "vendor") {
       return (
         bid.vendorId === currentUser.uid &&
         (statusFilter === "all" || bid.status === statusFilter)
@@ -98,15 +98,15 @@ export default function BidsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            {currentUser?.role === "bidder" ? "My Bids" : "All Bids"}
+            {currentUser?.role === "vendor" ? "My Bids" : "All Bids"}
           </h1>
           <p className="text-gray-600 text-sm mt-1">
-            {currentUser?.role === "bidder"
+            {currentUser?.role === "vendor"
               ? "Track and manage your submitted bids"
               : "Review and manage all submitted bids"}
           </p>
         </div>
-        {currentUser?.role === "bidder" && (
+        {currentUser?.role === "vendor" && (
           <Link to="/tenders">
             <Button variant="secondary">Submit New Bid</Button>
           </Link>
@@ -175,11 +175,11 @@ export default function BidsPage() {
         {filteredBids.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-gray-500">
-              {currentUser?.role === "bidder"
+              {currentUser?.role === "vendor"
                 ? "You haven't submitted any bids yet"
                 : "No bids found"}
             </p>
-            {currentUser?.role === "bidder" && (
+            {currentUser?.role === "vendor" && (
               <Link
                 to="/tenders"
                 className="text-secondary hover:underline mt-2 inline-block"
@@ -193,7 +193,7 @@ export default function BidsPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                  {currentUser?.role === "bidder" ? "Tender" : "Vendor"}
+                  {currentUser?.role === "vendor" ? "Tender" : "Vendor"}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
                   Bid Amount
@@ -216,7 +216,7 @@ export default function BidsPage() {
               {filteredBids.map((bid: Bid) => (
                 <tr key={bid.id} className="hover:bg-gray-50 transition">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {currentUser?.role === "bidder"
+                    {currentUser?.role === "vendor"
                       ? bid.tenderTitle
                       : bid.vendorName}
                   </td>
@@ -267,7 +267,7 @@ export default function BidsPage() {
                         <Eye size={16} />
                         View
                       </Link>
-                      {currentUser?.role === "bidder" &&
+                      {currentUser?.role === "vendor" &&
                         currentUser?.uid === bid.vendorId &&
                         (bid.status === "draft" ||
                           bid.status === "submitted") && (
@@ -336,7 +336,7 @@ export default function BidsPage() {
       )}
 
       {/* Help Section */}
-      {currentUser?.role === "bidder" && (
+      {currentUser?.role === "vendor" && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h3 className="font-semibold text-blue-900 mb-3">
             Bid Tracking Guide

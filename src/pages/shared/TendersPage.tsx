@@ -33,7 +33,7 @@ export default function TendersPage() {
       </div>
 
       {/* Info Banner */}
-      {currentUser?.role === "bidder" && tenders.length > 0 && (
+      {currentUser?.role === "vendor" && tenders.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
           <FileText className="text-blue-600 mt-0.5 flex-shrink-0" size={20} />
           <div>
