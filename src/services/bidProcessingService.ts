@@ -1,4 +1,5 @@
 import { db } from '@/firebase/config';
+import { Bid } from '@/types';
 import {
   collection,
   query,
@@ -9,19 +10,6 @@ import {
   getDoc,
   orderBy,
 } from 'firebase/firestore';
-
-export interface Bid {
-  id: string;
-  tenderId: string;
-  bidderId: string;
-  bidAmount: number;
-  submissionDate: string;
-  status: 'submitted' | 'compliant' | 'non_compliant' | 'shortlisted' | 'rejected' | 'awarded';
-  documents: string[];
-  complianceCheckResult?: ComplianceCheckResult;
-  evaluationScore?: number;
-  feedback?: string;
-}
 
 export interface ComplianceCheckResult {
   isCompliant: boolean;
@@ -81,9 +69,9 @@ class BidProcessingService {
       }
 
       // Check submission date is before deadline
-      if (new Date(bidData.submissionDate) > new Date(tenderData.closeDate)) {
+      if (new Date(bidData.createdAt) > new Date(tenderData.closeDate)) {
         issues.push({
-          field: 'submissionDate',
+          field: 'createdAt',
           rule: 'Submission before deadline',
           severity: 'critical',
           description: `Bid submitted after tender close date (${tenderData.closeDate})`,
@@ -252,6 +240,57 @@ class BidProcessingService {
       })) as Bid[];
     } catch (error) {
       console.error('Error fetching bids by status:', error);
+      throw error;
+    }
+  }
+
+  // GET ALL BIDS FOR PROCESSING (ACROSS ALL TENDERS)
+  async getAllBidsForProcessing(): Promise<Bid[]> {
+    try {
+      const bidsRef = collection(db, 'bids');
+      const q = query(bidsRef, orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Bid[];
+    } catch (error) {
+      console.error('Error fetching all bids for processing:', error);
+      // Fallback: fetch without ordering if the field doesn't exist
+      try {
+        const bidsRef = collection(db, 'bids');
+        const snapshot = await getDocs(bidsRef);
+        const bids = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Bid[];
+        // Sort by createdAt in memory
+        return bids.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      } catch (fallbackError) {
+        console.error('Error in fallback bid fetch:', fallbackError);
+        throw fallbackError;
+      }
+    }
+  }
+
+  // GET SUBMITTED BIDS FOR PROCESSING
+  async getSubmittedBidsForProcessing(): Promise<Bid[]> {
+    try {
+      const bidsRef = collection(db, 'bids');
+      const q = query(
+        bidsRef,
+        where('status', '==', 'submitted'),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Bid[];
+    } catch (error) {
+      console.error('Error fetching submitted bids:', error);
       throw error;
     }
   }

@@ -1,13 +1,7 @@
 import { useState, useEffect } from "react";
-import {
-  Search,
-  Filter,
-  CheckCircle,
-  AlertCircle,
-  Star,
-  Eye,
-} from "lucide-react";
-import bidProcessingService, { Bid } from "@/services/bidProcessingService";
+import { Search, Filter, CheckCircle, Star, Eye } from "lucide-react";
+import bidProcessingService from "@/services/bidProcessingService";
+import { Bid } from "@/types";
 import Loading from "@/components/Loading";
 import Error from "@/components/Error";
 
@@ -42,10 +36,22 @@ export default function AdminBidProcessing() {
     try {
       setLoading(true);
       setError(null);
-      // In a real app, you'd fetch bids from service
-      // For now, we'll set empty array
-      setBids([]);
+      console.log("Starting to fetch bids...");
+      const allBids = await bidProcessingService.getAllBidsForProcessing();
+      console.log("Fetched bids from service:", allBids);
+      // Filter out invalid bids that don't have required fields
+      const validBids = allBids.filter(
+        (bid) =>
+          bid &&
+          bid.id &&
+          bid.tenderId &&
+          bid.vendorId &&
+          bid.amount !== undefined,
+      );
+      console.log("Valid bids after filtering:", validBids);
+      setBids(validBids);
     } catch (err) {
+      console.error("Error loading bids:", err);
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
@@ -58,9 +64,12 @@ export default function AdminBidProcessing() {
     if (searchTerm) {
       result = result.filter(
         (bid) =>
-          bid.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bid.tenderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bid.bidderId.toLowerCase().includes(searchTerm.toLowerCase()),
+          bid.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          false ||
+          bid.tenderId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          false ||
+          bid.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          false,
       );
     }
 
@@ -211,7 +220,7 @@ export default function AdminBidProcessing() {
                   Tender ID
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  Bidder ID
+                  Vendor Name
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                   Amount
@@ -238,22 +247,24 @@ export default function AdminBidProcessing() {
                     className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
                   >
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {bid.id.substring(0, 8)}
+                      {bid.id ? bid.id.substring(0, 8) : "N/A"}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {bid.tenderId.substring(0, 8)}
+                      {bid.tenderId ? bid.tenderId.substring(0, 8) : "N/A"}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {bid.bidderId.substring(0, 8)}
+                      {bid.vendorName || "N/A"}
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      BWP {bid.bidAmount.toLocaleString()}
+                      {bid.amount
+                        ? `${bid.currency} ${bid.amount.toLocaleString()}`
+                        : "N/A"}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(bid.status)}`}
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(bid.status || "")}`}
                       >
-                        {bid.status.replace("_", " ")}
+                        {bid.status ? bid.status.replace("_", " ") : "Unknown"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm">
@@ -267,7 +278,9 @@ export default function AdminBidProcessing() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {new Date(bid.submissionDate).toLocaleDateString()}
+                      {bid.createdAt
+                        ? new Date(bid.createdAt).toLocaleDateString()
+                        : "N/A"}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <button
@@ -321,7 +334,7 @@ export default function AdminBidProcessing() {
               <div>
                 <p className="text-sm text-gray-600">Amount</p>
                 <p className="font-medium">
-                  BWP {selectedBid.bidAmount.toLocaleString()}
+                  {selectedBid.currency} {selectedBid.amount.toLocaleString()}
                 </p>
               </div>
 
@@ -348,33 +361,6 @@ export default function AdminBidProcessing() {
                   rows={3}
                 />
               </div>
-
-              {selectedBid.complianceCheckResult && (
-                <div>
-                  <p className="text-sm text-gray-600">Compliance Issues</p>
-                  <div className="space-y-2 mt-2">
-                    {selectedBid.complianceCheckResult.issues.map(
-                      (issue, idx) => (
-                        <div
-                          key={idx}
-                          className="flex gap-2 p-2 bg-red-50 rounded border border-red-200"
-                        >
-                          <AlertCircle
-                            className="text-danger flex-shrink-0"
-                            size={16}
-                          />
-                          <div>
-                            <p className="text-xs font-medium">{issue.field}</p>
-                            <p className="text-xs text-gray-600">
-                              {issue.description}
-                            </p>
-                          </div>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="space-y-2">
