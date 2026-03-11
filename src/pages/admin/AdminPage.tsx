@@ -8,14 +8,16 @@ import {
   LogOut,
   Menu,
   X,
+  BookOpen,
 } from "lucide-react";
 import authService from "@/firebase/auth";
 import AdminDashboard from "./AdminDashboard";
 import AdminUserManagement from "./AdminUserManagement";
 import AdminTenderManagement from "./AdminTenderManagement";
 import AdminBidProcessing from "./AdminBidProcessing";
+import DocumentEvaluationDashboard from "./DocumentEvaluationDashboard";
 
-type AdminView = "dashboard" | "users" | "tenders" | "bids";
+type AdminView = "dashboard" | "users" | "tenders" | "bids" | "evaluations";
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -55,6 +57,12 @@ export default function AdminPage() {
       label: "Bid Processing",
       icon: BarChart3,
       badge: "Process",
+    },
+    {
+      id: "evaluations",
+      label: "Document Analysis",
+      icon: BookOpen,
+      badge: "AI",
     },
   ];
 
@@ -129,6 +137,7 @@ export default function AdminPage() {
           {currentView === "users" && <AdminUserManagement />}
           {currentView === "tenders" && <AdminTenderManagement />}
           {currentView === "bids" && <AdminBidProcessing />}
+          {currentView === "evaluations" && <DocumentEvaluationDashboard />}
         </div>
       </div>
     </div>

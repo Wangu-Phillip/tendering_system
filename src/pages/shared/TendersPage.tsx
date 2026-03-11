@@ -205,7 +205,7 @@ export default function TendersPage() {
                       {tender.currency} {tender.budget.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {new Date(tender.openDate).toLocaleDateString()}
+                      {new Date(tender.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {new Date(tender.closeDate).toLocaleDateString()}

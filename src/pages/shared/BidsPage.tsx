@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Eye,
@@ -13,9 +13,8 @@ import { useBids } from "@hooks/useBids";
 import Loading from "@components/Loading";
 import Error from "@components/Error";
 import Button from "@components/Button";
-import Input from "@components/Input";
 import TextArea from "@components/TextArea";
-import { formatCurrency, formatDate, formatDateTime } from "@utils/formatters";
+import { formatCurrency, formatDate } from "@utils/formatters";
 import { Bid } from "@types";
 import bidService from "@/services/bidService";
 import tenderService from "@/services/tenderService";

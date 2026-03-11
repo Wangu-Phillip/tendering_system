@@ -15,6 +15,7 @@ interface Bid {
   currency: string;
   status: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 // Use type from service - matches the actual data structure
@@ -402,7 +403,7 @@ export default function ProcurementEntityDashboard() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {new Date(bid.createdAt).toLocaleDateString()}
+                      {new Date(bid.updatedAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <Link

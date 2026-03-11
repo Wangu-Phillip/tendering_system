@@ -110,20 +110,34 @@ export class FirestoreService {
    */
   private convertDocumentData(docId: string, data: any): any {
     const converted = { id: docId, ...data };
+    return this.convertTimestamps(converted);
+  }
 
-    // Convert Firestore Timestamps to Date objects
-    Object.keys(converted).forEach((key) => {
-      if (converted[key] instanceof Timestamp) {
-        converted[key] = converted[key].toDate();
-      } else if (typeof converted[key] === 'object' && converted[key] !== null) {
-        // Recursively convert nested objects
-        if (converted[key] instanceof Timestamp) {
-          converted[key] = converted[key].toDate();
-        }
-      }
-    });
+  /**
+   * Recursively convert Timestamps throughout an object (including nested objects and arrays)
+   */
+  private convertTimestamps(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
 
-    return converted;
+    if (obj instanceof Timestamp) {
+      return obj.toDate();
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map((item) => this.convertTimestamps(item));
+    }
+
+    if (typeof obj === 'object') {
+      const converted: any = {};
+      Object.keys(obj).forEach((key) => {
+        converted[key] = this.convertTimestamps(obj[key]);
+      });
+      return converted;
+    }
+
+    return obj;
   }
 
   /**

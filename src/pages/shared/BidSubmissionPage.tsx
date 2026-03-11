@@ -173,7 +173,7 @@ export default function BidSubmissionPage() {
   // Check if tender is still open
   const tenderStatus = (tender as any).status || tender.status;
   const tenderDeadline = new Date(
-    (tender as any).closeDate || (tender as any).deadline || tender.deadline,
+    (tender as any).closeDate || (tender as any).deadline || tender.closeDate,
   );
   const isDeadlinePassed = tenderDeadline < new Date();
   const daysUntilDeadline = Math.ceil(
@@ -252,7 +252,7 @@ export default function BidSubmissionPage() {
           <div>
             <p className="text-gray-600 text-sm">Deadline</p>
             <p className="font-semibold text-gray-900">
-              {formatDate(tender.deadline, "short")}
+              {formatDate(tender.closeDate, "short")}
             </p>
           </div>
           <div>

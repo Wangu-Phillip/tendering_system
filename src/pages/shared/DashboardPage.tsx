@@ -127,7 +127,7 @@ export default function DashboardPage() {
                       />
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {formatDate(tender.deadline)}
+                      {formatDate(tender.closeDate)}
                     </td>
                   </tr>
                 ))}

@@ -5,16 +5,36 @@ export const formatCurrency = (amount: number, currency: string = 'BWP'): string
   }).format(amount);
 };
 
-export const formatDate = (date: Date | string, format: 'short' | 'long' = 'short'): string => {
-  const d = new Date(date);
+export const formatDate = (date: Date | string | undefined | null, format: 'short' | 'long' = 'short'): string => {
+  if (!date) {
+    return 'N/A';
+  }
+  
+  const d = date instanceof Date ? date : new Date(date);
+  
+  if (isNaN(d.getTime())) {
+    console.warn('Invalid date provided:', date);
+    return 'Invalid date';
+  }
+  
   if (format === 'short') {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 };
 
-export const formatDateTime = (date: Date | string): string => {
-  const d = new Date(date);
+export const formatDateTime = (date: Date | string | undefined | null): string => {
+  if (!date) {
+    return 'N/A';
+  }
+  
+  const d = date instanceof Date ? date : new Date(date);
+  
+  if (isNaN(d.getTime())) {
+    console.warn('Invalid date provided:', date);
+    return 'Invalid date';
+  }
+  
   return d.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',

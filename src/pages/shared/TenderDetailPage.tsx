@@ -23,7 +23,7 @@ export default function TenderDetailPage() {
   // Handle both tender types (from tenderManagementService and legacy Tender type)
   const tenderStatus = (tender as any).status || tender.status;
   const tenderDeadline = new Date(
-    (tender as any).closeDate || (tender as any).deadline || tender.deadline,
+    (tender as any).closeDate || (tender as any).deadline || tender.closeDate,
   );
   const isTenderOpen =
     tenderStatus === "open" ||
@@ -146,7 +146,7 @@ export default function TenderDetailPage() {
             <div>
               <p className="text-gray-600 text-sm">Submission Deadline</p>
               <p className="font-semibold text-gray-900">
-                {formatDateTime(tender.deadline)}
+                {formatDateTime(tender.closeDate)}
               </p>
             </div>
           </div>

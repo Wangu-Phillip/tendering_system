@@ -16,7 +16,7 @@ export interface Tender {
   category: string;
   budget: number;
   currency: string;
-  deadline: Date;
+  closeDate: Date;
   status: 'open' | 'closing_soon' | 'closed' | 'awarded';
   createdBy: string;
   attachments?: string[];
@@ -120,6 +120,72 @@ export interface Contract {
   status: 'draft' | 'active' | 'completed' | 'terminated' | 'suspended';
   terms: string;
   attachments?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// DOCUMENT ANALYSIS TYPES
+export interface DocumentAnalysis {
+  id: string;
+  bidId: string;
+  tenderId: string;
+  documentType: 'technical_proposal' | 'company_profile' | 'methodology' | 'financial' | 'work_sample';
+  fileName: string;
+  fileUrl: string;
+  extractedText: string;
+  analysisResults: {
+    relevanceScore: number;           // 0-100
+    technicalQualityScore: number;    // 0-100
+    riskAssessment: RiskAssessment;
+    complianceScore: number;          // 0-100
+    keyFindings: string[];
+    strengths: string[];
+    weaknesses: string[];
+    recommendations: string[];
+  };
+  geminiAnalysis: {
+    summary: string;
+    detailedAnalysis: string;
+    suggestedQuestions?: string[];
+  };
+  processingStatus: 'pending' | 'processing' | 'completed' | 'failed';
+  errorMessage?: string;
+  processedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface RiskAssessment {
+  overallRisk: 'low' | 'medium' | 'high';
+  technicalRisks: string[];
+  financialRisks: string[];
+  deliveryRisks: string[];
+  complianceRisks: string[];
+  riskScore: number; // 0-100, higher = more risk
+}
+
+export interface BidDocumentEvaluation {
+  id: string;
+  bidId: string;
+  tenderId: string;
+  vendorId: string;
+  vendorName: string;
+  documents: DocumentAnalysis[];
+  overallScore: number; // 0-100
+  averageRelevance: number;
+  averageTechnicalQuality: number;
+  averageCompliance: number;
+  overallRisk: 'low' | 'medium' | 'high';
+  evaluation: {
+    meetsRequirements: boolean;
+    technicalFeasibility: 'low' | 'medium' | 'high';
+    financialViability: 'low' | 'medium' | 'high';
+    complianceStatus: 'compliant' | 'minor_gaps' | 'major_gaps';
+    recommendation: 'approved' | 'conditional' | 'rejected' | 'requires_review';
+    reasoning: string;
+  };
+  evaluatedAt: Date;
+  evaluatedBy: 'system' | 'human';
   createdAt: Date;
   updatedAt: Date;
 }

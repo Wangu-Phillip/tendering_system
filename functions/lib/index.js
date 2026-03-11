@@ -1,0 +1,444 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.analyzeBidDocuments = exports.calculateBidStats = exports.onBidUpdated = exports.onTenderCreated = void 0;
+const functions = __importStar(require("firebase-functions"));
+const admin = __importStar(require("firebase-admin"));
+const generative_ai_1 = require("@google/generative-ai");
+// @ts-ignore - pdf-parse doesn't have type definitions
+const pdfParse = __importStar(require("pdf-parse"));
+admin.initializeApp();
+const db = admin.firestore();
+const storage = admin.storage().bucket();
+const geminiApiKey = process.env.GEMINI_API_KEY || '';
+const genAI = geminiApiKey ? new generative_ai_1.GoogleGenerativeAI(geminiApiKey) : null;
+// Trigger when a tender is created
+exports.onTenderCreated = functions.firestore
+    .onDocumentCreated('tenders/{tenderId}', async (event) => {
+    const tender = event.data?.data();
+    console.log('New tender created:', tender);
+    // Add custom logic here
+});
+// Trigger when a bid is submitted
+exports.onBidUpdated = functions.firestore
+    .onDocumentUpdated('bids/{bidId}', async (event) => {
+    const newBid = event.data?.after.data();
+    const oldBid = event.data?.before.data();
+    if (newBid?.status === 'submitted' && oldBid?.status !== 'submitted') {
+        console.log('Bid submitted:', newBid);
+        // Trigger document analysis
+        await analyzeSubmittedBidDocuments(newBid.id, newBid.tenderId, newBid.vendorId);
+    }
+});
+// Calculate average bid price when bids change
+exports.calculateBidStats = functions.firestore
+    .onDocumentWritten('bids/{bidId}', async (event) => {
+    const bidData = event.data?.after.data();
+    const tenderId = bidData?.tenderId;
+    if (!tenderId)
+        return;
+    const bidsSnapshot = await db.collection('bids').where('tenderId', '==', tenderId).get();
+    const bids = bidsSnapshot.docs.map((doc) => doc.data());
+    const amounts = bids
+        .filter((bid) => bid.status === 'submitted')
+        .map((bid) => bid.amount);
+    const totalAmount = amounts.reduce((sum, amount) => sum + amount, 0);
+    const averageAmount = amounts.length > 0 ? totalAmount / amounts.length : 0;
+    await db.collection('tenders').doc(tenderId).update({
+        bidCount: bids.length,
+        averageBidPrice: averageAmount,
+    });
+});
+/**
+ * HTTP Callable Function for manual document analysis
+ * Analyzes bid documents using Gemini API
+ */
+exports.analyzeBidDocuments = functions.https.onCall(async (data, context) => {
+    if (!context?.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+    }
+    const { bidId, tenderId } = data;
+    if (!bidId || !tenderId) {
+        throw new functions.https.HttpsError('invalid-argument', 'bidId and tenderId are required');
+    }
+    return analyzeSubmittedBidDocuments(bidId, tenderId);
+});
+/**
+ * Analyze documents submitted with a bid
+ */
+async function analyzeSubmittedBidDocuments(bidId, tenderId, vendorId) {
+    try {
+        console.log(`Starting document analysis for bid ${bidId}`);
+        // Get bid and tender data
+        const bidSnapshot = await db.collection('bids').doc(bidId).get();
+        const tenderSnapshot = await db.collection('tenders').doc(tenderId).get();
+        if (!bidSnapshot.exists || !tenderSnapshot.exists) {
+            throw new Error('Bid or tender not found');
+        }
+        const bidData = bidSnapshot.data();
+        const tenderData = tenderSnapshot.data();
+        const attachments = bidData?.attachments || [];
+        if (attachments.length === 0) {
+            console.log(`No attachments found for bid ${bidId}`);
+            return { success: false, message: 'No documents to analyze' };
+        }
+        const documentAnalyses = [];
+        // Download and analyze each attachment
+        for (const attachment of attachments) {
+            try {
+                const filePath = attachment; // This should be the full storage path
+                const file = storage.file(filePath);
+                // Download file
+                const [buffer] = await file.download();
+                console.log(`Downloaded ${filePath}, size: ${buffer.length} bytes`);
+                // Extract text from PDF
+                let extractedText = '';
+                try {
+                    const data = await pdfParse(buffer);
+                    extractedText = data.text;
+                    console.log(`Extracted ${extractedText.length} characters from ${filePath}`);
+                }
+                catch (pdfError) {
+                    console.error(`Error parsing PDF ${filePath}:`, pdfError);
+                    extractedText = `[Error extracting PDF: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}]`;
+                }
+                // Determine document type from filename
+                const fileName = filePath.split('/').pop() || '';
+                const documentType = classifyDocument(fileName);
+                // Analyze with Gemini
+                const analysis = await analyzeDocumentWithGemini(extractedText, documentType, tenderData?.description || '', fileName);
+                const documentAnalysis = {
+                    id: `doc_${bidId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    bidId,
+                    tenderId,
+                    documentType,
+                    fileName,
+                    fileUrl: filePath,
+                    extractedText: extractedText.substring(0, 5000), // Store first 5000 chars
+                    analysisResults: {
+                        relevanceScore: analysis.relevanceScore || 50,
+                        technicalQualityScore: analysis.technicalQualityScore || 50,
+                        riskAssessment: analysis.riskAssessment || {
+                            overallRisk: 'medium',
+                            technicalRisks: [],
+                            financialRisks: [],
+                            deliveryRisks: [],
+                            complianceRisks: [],
+                            riskScore: 50,
+                        },
+                        complianceScore: analysis.complianceScore || 50,
+                        keyFindings: analysis.keyFindings || [],
+                        strengths: analysis.strengths || [],
+                        weaknesses: analysis.weaknesses || [],
+                        recommendations: analysis.recommendations || [],
+                    },
+                    geminiAnalysis: {
+                        summary: analysis.summary || 'Analysis completed',
+                        detailedAnalysis: analysis.detailedAnalysis || 'See findings above',
+                        suggestedQuestions: analysis.suggestedQuestions || [],
+                    },
+                    processingStatus: 'completed',
+                    processedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                };
+                documentAnalyses.push(documentAnalysis);
+                // Store analysis in Firestore
+                await db.collection('documentAnalyses').doc(documentAnalysis.id).set(documentAnalysis);
+                console.log(`Stored analysis for ${fileName}`);
+            }
+            catch (error) {
+                console.error(`Error analyzing attachment:`, error);
+            }
+        }
+        // Generate comprehensive bid evaluation
+        const bidEvaluation = generateBidEvaluation(bidId, tenderId, bidData, documentAnalyses);
+        // Store bid evaluation
+        await db.collection('bidDocumentEvaluations').doc(bidEvaluation.id).set(bidEvaluation);
+        // Update bid with evaluation score
+        await db.collection('bids').doc(bidId).update({
+            documentEvaluationScore: bidEvaluation.overallScore,
+            documentEvaluationId: bidEvaluation.id,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`Completed document analysis for bid ${bidId}, score: ${bidEvaluation.overallScore.toFixed(2)}`);
+        return {
+            success: true,
+            bidId,
+            evaluationId: bidEvaluation.id,
+            overallScore: bidEvaluation.overallScore,
+            recommendation: bidEvaluation.evaluation.recommendation,
+            documentsAnalyzed: documentAnalyses.length,
+        };
+    }
+    catch (error) {
+        console.error('Error in document analysis:', error);
+        throw new functions.https.HttpsError('internal', `Document analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+/**
+ * Classify document type based on filename
+ */
+function classifyDocument(fileName) {
+    const nameLower = fileName.toLowerCase();
+    if (nameLower.includes('technical') || nameLower.includes('proposal'))
+        return 'technical_proposal';
+    if (nameLower.includes('company') || nameLower.includes('profile') || nameLower.includes('organization'))
+        return 'company_profile';
+    if (nameLower.includes('method') || nameLower.includes('approach') || nameLower.includes('plan'))
+        return 'methodology';
+    if (nameLower.includes('financial') || nameLower.includes('financial') || nameLower.includes('accounting'))
+        return 'financial';
+    if (nameLower.includes('work') || nameLower.includes('portfolio') || nameLower.includes('case') || nameLower.includes('sample'))
+        return 'work_sample';
+    return 'technical_proposal'; // Default
+}
+/**
+ * Analyze document with Gemini API
+ */
+async function analyzeDocumentWithGemini(documentText, documentType, tenderDescription, fileName) {
+    try {
+        if (!genAI) {
+            console.warn('Gemini API not configured, returning default analysis');
+            return getDefaultAnalysis();
+        }
+        const prompt = getAnalysisPrompt(documentText, documentType, tenderDescription);
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+        const analysisText = response.text();
+        console.log(`Got Gemini response for ${fileName}, length: ${analysisText.length}`);
+        return parseGeminiResponse(analysisText);
+    }
+    catch (error) {
+        console.error('Error calling Gemini API:', error);
+        return getDefaultAnalysis();
+    }
+}
+/**
+ * Get analysis prompt for Gemini
+ */
+function getAnalysisPrompt(documentText, documentType, tenderDescription) {
+    const typePrompts = {
+        technical_proposal: `
+      Evaluate this technical proposal for:
+      1. Alignment with tender requirements
+      2. Technical feasibility and soundness
+      3. Clarity of proposed approach
+      4. Risk awareness and mitigation strategies
+      5. Resource allocation and scheduling
+    `,
+        company_profile: `
+      Evaluate this company profile for:
+      1. Relevant experience in similar projects
+      2. Company stability and financial health indicators
+      3. Team qualifications and expertise levels
+      4. Past performance track record
+      5. Compliance with required certifications
+    `,
+        methodology: `
+      Evaluate this methodology for:
+      1. Alignment with tender scope
+      2. Realistic timeline and milestones
+      3. Risk management approach
+      4. Quality assurance procedures
+      5. Resource planning and allocation
+    `,
+        financial: `
+      Evaluate this financial documentation for:
+      1. Financial viability and stability
+      2. Cost breakdown clarity
+      3. Value for money assessment
+      4. Financial risk factors
+      5. Compliance with financial requirements
+    `,
+        work_sample: `
+      Evaluate this work sample for:
+      1. Relevance to tender requirements
+      2. Quality and professional execution
+      3. Evidence of required capabilities
+      4. Innovation and best practices
+      5. Applicability to current project
+    `,
+    };
+    return `
+You are an expert procurement auditor. Analyze the following ${documentType} document.
+
+TENDER REQUIREMENTS:
+${tenderDescription.substring(0, 1000)}
+
+EVALUATION FOCUS:
+${typePrompts[documentType] || typePrompts.technical_proposal}
+
+DOCUMENT CONTENT:
+${documentText.substring(0, 10000)}
+
+Provide analysis in this JSON format (and ONLY this JSON, no other text):
+{
+  "relevanceScore": <0-100>,
+  "technicalQualityScore": <0-100>,
+  "complianceScore": <0-100>,
+  "riskLevel": "low|medium|high",
+  "riskScore": <0-100>,
+  "keyFindings": ["finding1", "finding2", ...],
+  "strengths": ["strength1", "strength2", ...],
+  "weaknesses": ["weakness1", "weakness2", ...],
+  "recommendations": ["rec1", "rec2", ...],
+  "technicalRisks": ["risk1", ...],
+  "financialRisks": ["risk1", ...],
+  "deliveryRisks": ["risk1", ...],
+  "complianceRisks": ["risk1", ...],
+  "summary": "Brief summary",
+  "detailedAnalysis": "Detailed analysis paragraph",
+  "suggestedQuestions": ["question1", ...]
+}
+  `;
+}
+/**
+ * Parse Gemini response
+ */
+function parseGeminiResponse(responseText) {
+    try {
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        const jsonString = jsonMatch ? jsonMatch[0] : responseText;
+        return JSON.parse(jsonString);
+    }
+    catch (error) {
+        console.error('Error parsing Gemini response:', error);
+        return getDefaultAnalysis();
+    }
+}
+/**
+ * Get default analysis if Gemini fails
+ */
+function getDefaultAnalysis() {
+    return {
+        relevanceScore: 60,
+        technicalQualityScore: 60,
+        complianceScore: 60,
+        riskLevel: 'medium',
+        riskScore: 50,
+        keyFindings: ['Document processed'],
+        strengths: [],
+        weaknesses: [],
+        recommendations: ['Manual review recommended'],
+        technicalRisks: [],
+        financialRisks: [],
+        deliveryRisks: [],
+        complianceRisks: [],
+        summary: 'Analysis completed with default scoring',
+        detailedAnalysis: 'Please review manually',
+        suggestedQuestions: [],
+    };
+}
+/**
+ * Generate comprehensive bid evaluation from document analyses
+ */
+function generateBidEvaluation(bidId, tenderId, bidData, documentAnalyses) {
+    const averageRelevance = documentAnalyses.reduce((sum, doc) => sum + doc.analysisResults.relevanceScore, 0) / (documentAnalyses.length || 1);
+    const averageTechnicalQuality = documentAnalyses.reduce((sum, doc) => sum + doc.analysisResults.technicalQualityScore, 0) / (documentAnalyses.length || 1);
+    const averageCompliance = documentAnalyses.reduce((sum, doc) => sum + doc.analysisResults.complianceScore, 0) / (documentAnalyses.length || 1);
+    const weights = {
+        technical_proposal: 0.35,
+        company_profile: 0.20,
+        methodology: 0.25,
+        financial: 0.15,
+        work_sample: 0.05,
+    };
+    let weightedScore = 0;
+    let totalWeight = 0;
+    for (const doc of documentAnalyses) {
+        const weight = weights[doc.documentType] || 0.1;
+        const docScore = doc.analysisResults.relevanceScore * 0.35 + doc.analysisResults.technicalQualityScore * 0.35 + doc.analysisResults.complianceScore * 0.3;
+        weightedScore += docScore * weight;
+        totalWeight += weight;
+    }
+    const overallScore = totalWeight > 0 ? weightedScore / totalWeight : 0;
+    const riskLevels = documentAnalyses.map(doc => doc.analysisResults.riskAssessment.overallRisk);
+    let overallRisk = 'low';
+    if (riskLevels.includes('high'))
+        overallRisk = 'high';
+    else if (riskLevels.includes('medium'))
+        overallRisk = 'medium';
+    let recommendation = 'requires_review';
+    let reasoning = '';
+    if (overallScore >= 80 && averageCompliance >= 80 && overallRisk !== 'high') {
+        recommendation = 'approved';
+        reasoning = `Documents demonstrate strong capability with good compliance. Overall Score: ${overallScore.toFixed(1)}/100`;
+    }
+    else if (overallScore >= 65 && averageCompliance >= 65 && overallRisk === 'low') {
+        recommendation = 'approved';
+        reasoning = `Documents meet requirements with acceptable quality. Overall Score: ${overallScore.toFixed(1)}/100`;
+    }
+    else if (overallScore >= 50 && averageCompliance >= 50) {
+        if (overallRisk === 'high') {
+            recommendation = 'requires_review';
+            reasoning = `Documents meet minimum requirements but significant risks identified. Safe Score: ${overallScore.toFixed(1)}/100`;
+        }
+        else {
+            recommendation = 'conditional';
+            reasoning = `Acceptable with clarifications needed. Overall Score: ${overallScore.toFixed(1)}/100`;
+        }
+    }
+    else {
+        recommendation = 'rejected';
+        reasoning = `Documents do not meet minimum quality or compliance standards. Overall Score: ${overallScore.toFixed(1)}/100`;
+    }
+    return {
+        id: `eval_${bidId}_${Date.now()}`,
+        bidId,
+        tenderId,
+        vendorId: bidData?.vendorId,
+        vendorName: bidData?.vendorName,
+        documents: documentAnalyses,
+        overallScore: Math.round(overallScore * 100) / 100,
+        averageRelevance: Math.round(averageRelevance * 100) / 100,
+        averageTechnicalQuality: Math.round(averageTechnicalQuality * 100) / 100,
+        averageCompliance: Math.round(averageCompliance * 100) / 100,
+        overallRisk,
+        evaluation: {
+            meetsRequirements: averageRelevance >= 70,
+            technicalFeasibility: averageTechnicalQuality >= 75 ? 'high' : averageTechnicalQuality >= 50 ? 'medium' : 'low',
+            financialViability: 'medium',
+            complianceStatus: averageCompliance >= 75 ? 'compliant' : averageCompliance >= 50 ? 'minor_gaps' : 'major_gaps',
+            recommendation,
+            reasoning,
+        },
+        evaluatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        evaluatedBy: 'system',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+}
