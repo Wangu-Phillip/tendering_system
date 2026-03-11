@@ -50,6 +50,11 @@ export default function BidDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [evaluation, setEvaluation] = useState<any>(null);
   const [loadingEvaluation, setLoadingEvaluation] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+  const [rejectReason, setRejectReason] = useState<string>("");
+  const [approvingBid, setApprovingBid] = useState(false);
+  const [rejectingBid, setRejectingBid] = useState(false);
 
   // Fetch evaluation notes when bid is loaded
   useEffect(() => {
@@ -80,6 +85,37 @@ export default function BidDetailPage() {
     currentUser?.role === "buyer" || currentUser?.role === "admin";
   const canEditOrDelete =
     isOwner && (bid.status === "draft" || bid.status === "submitted");
+
+  const approveBid = async () => {
+    setApprovingBid(true);
+    try {
+      await bidService.updateBid(bid.id, { status: "awarded" });
+      setShowApproveConfirm(false);
+      refetch();
+    } catch (error) {
+      console.error("Error approving bid:", error);
+      alert("Failed to approve bid. Please try again.");
+    } finally {
+      setApprovingBid(false);
+    }
+  };
+
+  const rejectBidHandler = async () => {
+    setRejectingBid(true);
+    try {
+      await bidService.updateBid(bid.id, {
+        status: "rejected",
+      });
+      setShowRejectConfirm(false);
+      setRejectReason("");
+      refetch();
+    } catch (error) {
+      console.error("Error rejecting bid:", error);
+      alert("Failed to reject bid. Please try again.");
+    } finally {
+      setRejectingBid(false);
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -623,6 +659,31 @@ export default function BidDetailPage() {
                       </span>
                     </p>
                   </div>
+
+                  {/* Reviewer Actions */}
+                  {isReviewer && (
+                    <div className="mt-6 bg-white rounded-lg p-4 border border-gray-200">
+                      <p className="text-gray-700 font-semibold mb-2 text-sm">
+                        Reviewer Actions
+                      </p>
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={() => setShowApproveConfirm(true)}
+                          disabled={approvingBid}
+                          className="!bg-green-600 !hover:bg-green-700 flex-1"
+                        >
+                          {approvingBid ? "Approving..." : "Approve Bid"}
+                        </Button>
+                        <Button
+                          onClick={() => setShowRejectConfirm(true)}
+                          disabled={rejectingBid}
+                          className="!bg-red-600 !hover:bg-red-700 flex-1"
+                        >
+                          {rejectingBid ? "Rejecting..." : "Reject Bid"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </>
@@ -665,30 +726,6 @@ export default function BidDetailPage() {
               </Button>
             </div>
           )}
-
-          {/* Actions */}
-          {isReviewer && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Reviewer Actions
-              </h2>
-              <p className="text-gray-600 text-sm mb-4">
-                These actions would typically be performed through an admin
-                interface
-              </p>
-              <div className="flex gap-3">
-                <Button className="!bg-green-600 !hover:bg-green-700 !text-white">
-                  Approve Bid
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="!border-red-600 !text-red-600"
-                >
-                  Reject Bid
-                </Button>
-              </div>
-            </div>
-          )}
         </>
       )}
 
@@ -698,6 +735,82 @@ export default function BidDetailPage() {
           Back to Bids
         </Button>
       </div>
+
+      {/* Approve Confirmation Dialog */}
+      {showApproveConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Approve Bid?
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to approve this bid and award the contract?
+              This bid will be marked as awarded.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => setShowApproveConfirm(false)}
+                variant="secondary"
+                disabled={approvingBid}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={approveBid}
+                disabled={approvingBid}
+                className="!bg-green-600 !hover:bg-green-700"
+              >
+                {approvingBid ? "Approving..." : "Approve"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Confirmation Dialog */}
+      {showRejectConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Reject Bid?
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to reject this bid? Please provide a reason
+              for the rejection.
+            </p>
+            <div className="mb-6">
+              <label className="text-sm font-medium text-gray-700 mb-2 block">
+                Rejection Reason
+              </label>
+              <TextArea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Explain why this bid is being rejected..."
+                rows={4}
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => {
+                  setShowRejectConfirm(false);
+                  setRejectReason("");
+                }}
+                variant="secondary"
+                disabled={rejectingBid}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={rejectBidHandler}
+                disabled={rejectingBid || !rejectReason.trim()}
+                className="!bg-red-600 !hover:bg-red-700"
+              >
+                {rejectingBid ? "Rejecting..." : "Reject"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
