@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Download,
   CheckCircle,
@@ -20,6 +20,7 @@ import TextArea from "@components/TextArea";
 import { formatCurrency, formatDate, formatDateTime } from "@utils/formatters";
 import bidService from "@/services/bidService";
 import tenderService from "@/services/tenderService";
+import procurementEntityService from "@/services/procurementEntityService";
 
 export default function BidDetailPage() {
   const navigate = useNavigate();
@@ -47,6 +48,27 @@ export default function BidDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [evaluation, setEvaluation] = useState<any>(null);
+  const [loadingEvaluation, setLoadingEvaluation] = useState(false);
+
+  // Fetch evaluation notes when bid is loaded
+  useEffect(() => {
+    if (id && bid?.status === "evaluated") {
+      const fetchEvaluation = async () => {
+        try {
+          setLoadingEvaluation(true);
+          const evalData =
+            await procurementEntityService.getEvaluationForBid(id);
+          setEvaluation(evalData);
+        } catch (error) {
+          console.error("Error fetching evaluation:", error);
+        } finally {
+          setLoadingEvaluation(false);
+        }
+      };
+      fetchEvaluation();
+    }
+  }, [id, bid?.status]);
 
   if (bidLoading || tenderLoading)
     return <Loading message="Loading bid details..." />;
@@ -497,6 +519,113 @@ export default function BidDetailPage() {
                 {bid.feedback}
               </p>
             </div>
+          )}
+
+          {/* Evaluation Notes */}
+          {bid.status === "evaluated" && (
+            <>
+              {loadingEvaluation ? (
+                <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+                  <p>Loading evaluation notes...</p>
+                </div>
+              ) : evaluation ? (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                  <h2 className="text-lg font-semibold text-purple-900 mb-4">
+                    Evaluation Notes & Breakdown
+                  </h2>
+
+                  {/* Score Breakdown */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-white rounded-lg p-4">
+                      <p className="text-purple-600 text-xs font-semibold uppercase">
+                        Price
+                      </p>
+                      <p className="text-2xl font-bold text-purple-900 mt-2">
+                        {evaluation.breakdown?.price || 0}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">out of 40</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-4">
+                      <p className="text-purple-600 text-xs font-semibold uppercase">
+                        Quality
+                      </p>
+                      <p className="text-2xl font-bold text-purple-900 mt-2">
+                        {evaluation.breakdown?.quality || 0}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">out of 30</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-4">
+                      <p className="text-purple-600 text-xs font-semibold uppercase">
+                        Experience
+                      </p>
+                      <p className="text-2xl font-bold text-purple-900 mt-2">
+                        {evaluation.breakdown?.experience || 0}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">out of 20</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-4">
+                      <p className="text-purple-600 text-xs font-semibold uppercase">
+                        Compliance
+                      </p>
+                      <p className="text-2xl font-bold text-purple-900 mt-2">
+                        {evaluation.breakdown?.compliance || 0}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">out of 10</p>
+                    </div>
+                  </div>
+
+                  {/* Overall Score */}
+                  <div className="bg-white rounded-lg p-4 mb-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-purple-600 text-sm font-semibold uppercase">
+                          Overall Score
+                        </p>
+                        <p className="text-3xl font-bold text-purple-900 mt-2">
+                          {evaluation.score}
+                          <span className="text-lg text-gray-600"> / 100</span>
+                        </p>
+                      </div>
+                      {evaluation.recommendedForAward && (
+                        <div className="text-green-600 flex flex-col items-center">
+                          <CheckCircle size={40} />
+                          <p className="text-sm font-semibold mt-2">
+                            Recommended for Award
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Evaluator Comments */}
+                  {evaluation.comments && (
+                    <div className="bg-white rounded-lg p-4 border border-purple-100">
+                      <p className="text-purple-900 font-semibold mb-2 text-sm">
+                        Evaluator's Comments
+                      </p>
+                      <p className="text-purple-800 whitespace-pre-wrap text-sm">
+                        {evaluation.comments}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Evaluator Info */}
+                  <div className="mt-4 pt-4 border-t border-purple-200">
+                    <p className="text-xs text-purple-700">
+                      Evaluated by:{" "}
+                      <span className="font-semibold">
+                        {evaluation.evaluatorName}
+                      </span>
+                      <br />
+                      Evaluation Date:{" "}
+                      <span className="font-semibold">
+                        {formatDateTime(evaluation.createdAt)}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </>
           )}
 
           {/* Tender Reference */}

@@ -284,6 +284,23 @@ class ProcurementEntityService {
     }
   }
 
+  async getEvaluationForBid(bidId: string): Promise<BidEvaluation | null> {
+    try {
+      const evaluationsRef = collection(db, 'evaluations');
+      const q = query(evaluationsRef, where('bidId', '==', bidId));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) return null;
+      const doc = snapshot.docs[0];
+      return {
+        id: doc.id,
+        ...doc.data(),
+      } as BidEvaluation;
+    } catch (error) {
+      console.error('Error fetching evaluation for bid:', error);
+      throw error;
+    }
+  }
+
   // CLARIFICATION REQUESTS
   async sendClarificationRequest(request: Omit<ClarificationRequest, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     try {
