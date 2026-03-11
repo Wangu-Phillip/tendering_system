@@ -1,63 +1,91 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Search, Filter } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import procurementEntityService from "@/services/procurementEntityService";
+import Loading from "@/components/Loading";
+import Error from "@/components/Error";
+
+interface Tender {
+  id: string;
+  title: string;
+  description: string;
+  budget: number;
+  currency: string;
+  status: string;
+  openDate: string;
+  closeDate: string;
+  category: string;
+}
+
+interface Bid {
+  id: string;
+  tenderId: string;
+  tenderTitle: string;
+  vendorName: string;
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+}
 
 export default function ProcurementEntityDashboard() {
+  const { currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
+  const [myTenders, setMyTenders] = useState<Tender[]>([]);
+  const [recentBids, setRecentBids] = useState<Bid[]>([]);
+  const [stats, setStats] = useState({
+    activeTenders: 0,
+    totalBids: 0,
+    closedTenders: 0,
+    contractsAwarded: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const myTenders = [
-    {
-      id: 1,
-      title: "Office Supplies Purchase",
-      postedDate: "2026-03-05",
-      deadline: "2026-03-15",
-      bidCount: 5,
-      status: "open",
-    },
-    {
-      id: 2,
-      title: "Website Redesign Project",
-      postedDate: "2026-03-04",
-      deadline: "2026-03-22",
-      bidCount: 8,
-      status: "open",
-    },
-    {
-      id: 3,
-      title: "Construction Materials Supply",
-      postedDate: "2026-03-01",
-      deadline: "2026-03-29",
-      bidCount: 3,
-      status: "closing_soon",
-    },
-  ];
+  useEffect(() => {
+    loadDashboardData();
+  }, [currentUser?.uid]);
 
-  const recentBids = [
-    {
-      id: 1,
-      tender: "Office Supplies Purchase",
-      vendor: "ABC Supplies Ltd",
-      amount: "BWP 4,500",
-      status: "submitted",
-      submittedDate: "2026-03-05",
-    },
-    {
-      id: 2,
-      tender: "Website Redesign Project",
-      vendor: "Tech Design Co",
-      amount: "BWP 14,000",
-      status: "under_evaluation",
-      submittedDate: "2026-03-04",
-    },
-    {
-      id: 3,
-      tender: "Website Redesign Project",
-      vendor: "Creative Studios",
-      amount: "BWP 16,500",
-      status: "under_evaluation",
-      submittedDate: "2026-03-03",
-    },
-  ];
+  const loadDashboardData = async () => {
+    if (!currentUser?.uid) return;
+
+    try {
+      setLoading(true);
+      const [tenders, allBids] = await Promise.all([
+        procurementEntityService.getTendersByProcuringEntity(currentUser.uid),
+        procurementEntityService.getBidsForTender(""), // This will need adjustment
+      ]);
+
+      setMyTenders(tenders);
+
+      // Calculate stats
+      const active = tenders.filter(
+        (t) => t.status === "published" || t.status === "draft",
+      ).length;
+      const closed = tenders.filter((t) => t.status === "closed").length;
+
+      setStats({
+        activeTenders: active,
+        totalBids: allBids.length,
+        closedTenders: closed,
+        contractsAwarded: 0, // Will update when we fetch contracts
+      });
+
+      // Get recent bids
+      const recentBidsData = allBids.slice(0, 5);
+      setRecentBids(recentBidsData);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load dashboard data",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <Loading message="Loading dashboard..." />;
+  if (error) return <Error message={error} />;
 
   return (
     <div className="space-y-6">
@@ -78,19 +106,27 @@ export default function ProcurementEntityDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg shadow p-6">
           <p className="text-gray-600 text-sm">Active Tenders</p>
-          <p className="text-3xl font-bold text-primary mt-2">3</p>
+          <p className="text-3xl font-bold text-primary mt-2">
+            {stats.activeTenders}
+          </p>
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <p className="text-gray-600 text-sm">Total Bids Received</p>
-          <p className="text-3xl font-bold text-secondary mt-2">16</p>
+          <p className="text-3xl font-bold text-secondary mt-2">
+            {stats.totalBids}
+          </p>
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <p className="text-gray-600 text-sm">Closed Tenders</p>
-          <p className="text-3xl font-bold text-success mt-2">8</p>
+          <p className="text-3xl font-bold text-success mt-2">
+            {stats.closedTenders}
+          </p>
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <p className="text-gray-600 text-sm">Contracts Awarded</p>
-          <p className="text-3xl font-bold text-warning mt-2">6</p>
+          <p className="text-3xl font-bold text-warning mt-2">
+            {stats.contractsAwarded}
+          </p>
         </div>
       </div>
 
@@ -176,29 +212,37 @@ export default function ProcurementEntityDashboard() {
                       {tender.title}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {tender.postedDate}
+                      {new Date(tender.openDate).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {tender.deadline}
+                      {new Date(tender.closeDate).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                      {tender.bidCount}
+                      {
+                        recentBids.filter((b) => b.tenderId === tender.id)
+                          .length
+                      }
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          tender.status === "open"
+                          tender.status === "published" ||
+                          tender.status === "draft"
                             ? "bg-success/20 text-success"
                             : "bg-warning/20 text-warning"
                         }`}
                       >
-                        {tender.status === "open" ? "Open" : "Closing Soon"}
+                        {tender.status.charAt(0).toUpperCase() +
+                          tender.status.slice(1)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm space-x-2">
-                      <button className="text-secondary hover:text-blue-700 font-semibold">
+                      <Link
+                        to={`/bids/evaluate/${tender.id}`}
+                        className="text-secondary hover:text-blue-700 font-semibold"
+                      >
                         View Bids
-                      </button>
+                      </Link>
                       <button className="text-gray-600 hover:text-gray-900 font-semibold">
                         Edit
                       </button>
@@ -237,7 +281,8 @@ export default function ProcurementEntityDashboard() {
             </div>
             <p className="font-medium">No bids received yet</p>
             <p className="text-sm mt-1">
-              Bids from vendors will appear here once they submit responses to your tenders.
+              Bids from vendors will appear here once they submit responses to
+              your tenders.
             </p>
           </div>
         ) : (
@@ -272,13 +317,13 @@ export default function ProcurementEntityDashboard() {
                     className="border-b hover:bg-light transition-colors"
                   >
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {bid.tender}
+                      {bid.tenderTitle}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {bid.vendor}
+                      {bid.vendorName}
                     </td>
                     <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                      {bid.amount}
+                      {bid.amount.toLocaleString()} {bid.currency}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span
@@ -288,18 +333,20 @@ export default function ProcurementEntityDashboard() {
                             : "bg-warning/20 text-warning"
                         }`}
                       >
-                        {bid.status === "submitted"
-                          ? "Submitted"
-                          : "Under Evaluation"}
+                        {bid.status.charAt(0).toUpperCase() +
+                          bid.status.slice(1)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {bid.submittedDate}
+                      {new Date(bid.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <button className="text-secondary hover:text-blue-700 font-semibold">
+                      <Link
+                        to={`/bids/evaluate/${bid.tenderId}`}
+                        className="text-secondary hover:text-blue-700 font-semibold"
+                      >
                         Review & Evaluate
-                      </button>
+                      </Link>
                     </td>
                   </tr>
                 ))}
@@ -307,7 +354,7 @@ export default function ProcurementEntityDashboard() {
             </table>
           </div>
         )}
-    </div>
+      </div>
     </div>
   );
 }

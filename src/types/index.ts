@@ -75,3 +75,51 @@ export interface DashboardStats {
   recentBids: Bid[];
   pendingEvaluations: number;
 }
+
+export interface ClarificationRequest {
+  id: string;
+  tenderId: string;
+  tenderTitle: string;
+  bidId?: string;
+  vendorId: string;
+  vendorName: string;
+  vendorEmail: string;
+  subject: string;
+  message: string;
+  attachments?: string[];
+  status: 'pending' | 'responded' | 'closed';
+  response?: string;
+  responseAttachments?: string[];
+  respondedBy?: string;
+  respondedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TenderExtension {
+  id: string;
+  tenderId: string;
+  originalDeadline: Date;
+  newDeadline: Date;
+  reason: string;
+  approvedBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Contract {
+  id: string;
+  tenderId: string;
+  awardedBidId: string;
+  awardedToVendor: string;
+  vendorEmail: string;
+  contractValue: number;
+  currency: string;
+  startDate: Date;
+  endDate: Date;
+  status: 'draft' | 'active' | 'completed' | 'terminated' | 'suspended';
+  terms: string;
+  attachments?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}

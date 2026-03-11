@@ -27,6 +27,10 @@ import BidderDashboard from "./pages/vendor/BidderDashboard";
 
 // Buyer Pages
 import ProcurementEntityDashboard from "./pages/buyer/ProcurementEntityDashboard";
+import TenderCreationPage from "./pages/buyer/TenderCreationPage";
+import BidEvaluationPage from "./pages/buyer/BidEvaluationPage";
+import ContractManagementPage from "./pages/buyer/ContractManagementPage";
+import ClarificationRequestsPage from "./pages/buyer/ClarificationRequestsPage";
 
 // Shared Pages
 import DashboardPage from "./pages/shared/DashboardPage";
@@ -141,9 +145,28 @@ function App() {
               <Route path="/bids/:id" element={<BidDetailPage />} />
               <Route path="/profile" element={<ProfilePage />} />
 
-              {/* Role-specific Pages */}
+              {/* Buyer/Procurement Entity Routes */}
               {currentUser?.role === "buyer" && (
-                <Route path="/analytics" element={<AnalyticsPage />} />
+                <>
+                  <Route
+                    path="/buyer/dashboard"
+                    element={<ProcurementEntityDashboard />}
+                  />
+                  <Route path="/tenders/new" element={<TenderCreationPage />} />
+                  <Route
+                    path="/bids/evaluate/:tenderId"
+                    element={<BidEvaluationPage />}
+                  />
+                  <Route
+                    path="/contracts"
+                    element={<ContractManagementPage />}
+                  />
+                  <Route
+                    path="/clarifications/:tenderId"
+                    element={<ClarificationRequestsPage />}
+                  />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
+                </>
               )}
             </Route>
           </Route>
