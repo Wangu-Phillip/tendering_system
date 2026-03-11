@@ -154,6 +154,10 @@ function App() {
                   />
                   <Route path="/tenders/new" element={<TenderCreationPage />} />
                   <Route
+                    path="/tenders/edit/:tenderId"
+                    element={<TenderCreationPage />}
+                  />
+                  <Route
                     path="/bids/evaluate/:tenderId"
                     element={<BidEvaluationPage />}
                   />

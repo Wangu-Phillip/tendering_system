@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { ArrowLeft, Plus, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import procurementEntityService from "@/services/procurementEntityService";
@@ -15,6 +15,11 @@ interface EvaluationCriteria {
 export default function TenderCreationPage() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const { tenderId } = useParams();
+  const location = useLocation();
+  const isEditing = !!tenderId;
+
+  const [pageLoading, setPageLoading] = useState(isEditing);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -40,6 +45,43 @@ export default function TenderCreationPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+
+  // Load tender if editing
+  useEffect(() => {
+    if (isEditing && tenderId) {
+      loadTender(tenderId);
+    }
+  }, [tenderId, isEditing]);
+
+  const loadTender = async (id: string) => {
+    try {
+      setPageLoading(true);
+      const tender =
+        location.state?.tender ||
+        (await procurementEntityService.getTenderById(id));
+
+      if (tender) {
+        setFormData({
+          title: tender.title,
+          description: tender.description,
+          category: tender.category,
+          budget: tender.budget.toString(),
+          currency: tender.currency || "BWP",
+          openDate: new Date(tender.openDate).toISOString().slice(0, 16),
+          closeDate: new Date(tender.closeDate).toISOString().slice(0, 16),
+        });
+
+        if (tender.evaluationCriteria) {
+          setEvaluationCriteria(tender.evaluationCriteria);
+        }
+      }
+    } catch (err) {
+      setError("Failed to load tender");
+      console.error(err);
+    } finally {
+      setPageLoading(false);
+    }
+  };
 
   // Validation
   const isFormValid = () => {
@@ -144,20 +186,31 @@ export default function TenderCreationPage() {
         setUploadingFiles(false);
       }
 
-      // Create the tender
-      await procurementEntityService.createTender(currentUser.uid, {
+      const tenderData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         category: formData.category.trim(),
         budget: parseFloat(formData.budget),
         openDate: new Date(formData.openDate).toISOString(),
         closeDate: new Date(formData.closeDate).toISOString(),
-        status: "draft",
         documents: documentUrls,
         evaluationCriteria,
-      } as any);
+      };
 
-      setSuccessMessage("Tender created successfully! Redirecting...");
+      if (isEditing && tenderId) {
+        await procurementEntityService.updateTender(tenderId, {
+          ...tenderData,
+          status: "draft",
+        } as any);
+        setSuccessMessage("Tender updated successfully! Redirecting...");
+      } else {
+        await procurementEntityService.createTender(currentUser.uid, {
+          ...tenderData,
+          status: "draft",
+        } as any);
+        setSuccessMessage("Tender created successfully! Redirecting...");
+      }
+
       setTimeout(() => {
         navigate("/buyer/dashboard");
       }, 2000);
@@ -182,10 +235,12 @@ export default function TenderCreationPage() {
         </button>
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            Create New Tender
+            {isEditing ? "Edit Tender" : "Create New Tender"}
           </h1>
           <p className="text-gray-600 mt-1">
-            Publish a tender to receive bids from vendors
+            {isEditing
+              ? "Update the tender details and requirements"
+              : "Create a tender for vendors to bid on"}
           </p>
         </div>
       </div>
@@ -201,320 +256,348 @@ export default function TenderCreationPage() {
         </div>
       )}
 
-      {/* Form */}
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white rounded-lg shadow p-8 space-y-8"
-      >
-        {/* Basic Information */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">
-            Basic Information
-          </h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tender Title <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                placeholder="e.g., Office Renovation Project"
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description <span className="text-red-500">*</span>
-              </label>
-              <TextArea
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                placeholder="Provide a detailed description of the tender, requirements, and expectations"
-                rows={4}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
-                >
-                  <option value="">Select a category</option>
-                  <option value="Construction">Construction</option>
-                  <option value="IT & Technology">IT & Technology</option>
-                  <option value="Services">Services</option>
-                  <option value="Supplies & Materials">
-                    Supplies & Materials
-                  </option>
-                  <option value="Consulting">Consulting</option>
-                  <option value="Transportation">Transportation</option>
-                  <option value="Healthcare">Healthcare</option>
-                  <option value="Education">Education</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Currency <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="currency"
-                  value={formData.currency}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
-                >
-                  <option value="BWP">BWP (Botswana Pula)</option>
-                  <option value="USD">USD (US Dollar)</option>
-                  <option value="EUR">EUR (Euro)</option>
-                  <option value="ZAR">ZAR (South African Rand)</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Budget <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="budget"
-                value={formData.budget}
-                onChange={handleInputChange}
-                placeholder="0.00"
-                min="0"
-                step="0.01"
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
-              />
-            </div>
-          </div>
+      {pageLoading ? (
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
-
-        {/* Dates */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Timeline</h2>
-          <div className="grid grid-cols-2 gap-4">
+      ) : (
+        <>
+          {/* Form */}
+          <form
+            onSubmit={handleSubmit}
+            className="bg-white rounded-lg shadow p-8 space-y-8"
+          >
+            {/* Basic Information */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Opening Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="datetime-local"
-                name="openDate"
-                value={formData.openDate}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Must be in the future
-              </p>
-            </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                Basic Information
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tender Title <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Office Renovation Project"
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Closing Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="datetime-local"
-                name="closeDate"
-                value={formData.closeDate}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Must be after opening date
-              </p>
-            </div>
-          </div>
-        </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description <span className="text-red-500">*</span>
+                  </label>
+                  <TextArea
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                    placeholder="Provide a detailed description of the tender, requirements, and expectations"
+                    rows={4}
+                  />
+                </div>
 
-        {/* Evaluation Criteria */}
-        <div>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Evaluation Criteria
-            </h2>
-            <span className="text-sm text-gray-600">
-              Total Weight:{" "}
-              <span
-                className={
-                  evaluationCriteria.reduce((sum, c) => sum + c.weight, 0) ===
-                  100
-                    ? "text-green-600"
-                    : "text-red-600"
-                }
-              >
-                {evaluationCriteria.reduce((sum, c) => sum + c.weight, 0)}%
-              </span>
-            </span>
-          </div>
-
-          <div className="space-y-4">
-            {evaluationCriteria.map((criteria, index) => (
-              <div key={index} className="bg-gray-50 rounded-lg p-4 space-y-3">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Criterion Name <span className="text-red-500">*</span>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      value={criteria.name}
-                      onChange={(e) =>
-                        handleCriteriaChange(index, "name", e.target.value)
-                      }
-                      placeholder="e.g., Price"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary text-sm"
-                    />
+                    <select
+                      name="category"
+                      value={formData.category}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                    >
+                      <option value="">Select a category</option>
+                      <option value="Construction">Construction</option>
+                      <option value="IT & Technology">IT & Technology</option>
+                      <option value="Services">Services</option>
+                      <option value="Supplies & Materials">
+                        Supplies & Materials
+                      </option>
+                      <option value="Consulting">Consulting</option>
+                      <option value="Transportation">Transportation</option>
+                      <option value="Healthcare">Healthcare</option>
+                      <option value="Education">Education</option>
+                      <option value="Maintenance">Maintenance</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Weight (%) <span className="text-red-500">*</span>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Currency <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="number"
-                      value={criteria.weight}
-                      onChange={(e) =>
-                        handleCriteriaChange(index, "weight", e.target.value)
-                      }
-                      placeholder="0"
-                      min="0"
-                      max="100"
-                      step="1"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary text-sm"
-                    />
-                  </div>
-
-                  <div className="flex items-end">
-                    {evaluationCriteria.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeCriterion(index)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <X size={18} />
-                      </button>
-                    )}
+                    <select
+                      name="currency"
+                      value={formData.currency}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                    >
+                      <option value="BWP">BWP (Botswana Pula)</option>
+                      <option value="USD">USD (US Dollar)</option>
+                      <option value="EUR">EUR (Euro)</option>
+                      <option value="ZAR">ZAR (South African Rand)</option>
+                    </select>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Budget <span className="text-red-500">*</span>
                   </label>
-                  <textarea
-                    value={criteria.description}
-                    onChange={(e) =>
-                      handleCriteriaChange(index, "description", e.target.value)
-                    }
-                    placeholder="Describe how this criterion will be evaluated"
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary text-sm resize-none"
+                  <input
+                    type="number"
+                    name="budget"
+                    value={formData.budget}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
                   />
                 </div>
               </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={addCriterion}
-            className="mt-4 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-          >
-            <Plus size={18} /> Add Criterion
-          </button>
-        </div>
-
-        {/* Documents */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">
-            Tender Documents
-          </h2>
-
-          <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
-            <label className="cursor-pointer block">
-              <input
-                type="file"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <div className="text-gray-600">
-                <p className="font-medium">Click to upload documents</p>
-                <p className="text-sm text-gray-500 mt-1">or drag and drop</p>
-              </div>
-            </label>
-          </div>
-
-          {documents.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <p className="text-sm font-medium text-gray-700">
-                Attached Documents:
-              </p>
-              {documents.map((file, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <span className="text-sm text-gray-700">{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(index)}
-                    className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              ))}
             </div>
-          )}
-        </div>
 
-        {/* Submit */}
-        <div className="flex gap-4 pt-4 border-t">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading || uploadingFiles || !isFormValid()}
-            className="flex-1 px-4 py-3 bg-secondary text-white rounded-lg hover:bg-blue-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <span className="animate-spin">⏳</span> Creating...
-              </>
-            ) : uploadingFiles ? (
-              <>
-                <span className="animate-spin">⏳</span> Uploading...
-              </>
-            ) : (
-              "Create & Publish Tender"
-            )}
-          </button>
-        </div>
-      </form>
+            {/* Dates */}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                Timeline
+              </h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Opening Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="openDate"
+                    value={formData.openDate}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Must be in the future
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Closing Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="closeDate"
+                    value={formData.closeDate}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Must be after opening date
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Evaluation Criteria */}
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Evaluation Criteria
+                </h2>
+                <span className="text-sm text-gray-600">
+                  Total Weight:{" "}
+                  <span
+                    className={
+                      evaluationCriteria.reduce(
+                        (sum, c) => sum + c.weight,
+                        0,
+                      ) === 100
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }
+                  >
+                    {evaluationCriteria.reduce((sum, c) => sum + c.weight, 0)}%
+                  </span>
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {evaluationCriteria.map((criteria, index) => (
+                  <div
+                    key={index}
+                    className="bg-gray-50 rounded-lg p-4 space-y-3"
+                  >
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Criterion Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={criteria.name}
+                          onChange={(e) =>
+                            handleCriteriaChange(index, "name", e.target.value)
+                          }
+                          placeholder="e.g., Price"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Weight (%) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={criteria.weight}
+                          onChange={(e) =>
+                            handleCriteriaChange(
+                              index,
+                              "weight",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="0"
+                          min="0"
+                          max="100"
+                          step="1"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary text-sm"
+                        />
+                      </div>
+
+                      <div className="flex items-end">
+                        {evaluationCriteria.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeCriterion(index)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <X size={18} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        value={criteria.description}
+                        onChange={(e) =>
+                          handleCriteriaChange(
+                            index,
+                            "description",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="Describe how this criterion will be evaluated"
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary text-sm resize-none"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={addCriterion}
+                className="mt-4 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+              >
+                <Plus size={18} /> Add Criterion
+              </button>
+            </div>
+
+            {/* Documents */}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                Tender Documents
+              </h2>
+
+              <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
+                <label className="cursor-pointer block">
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <div className="text-gray-600">
+                    <p className="font-medium">Click to upload documents</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      or drag and drop
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {documents.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm font-medium text-gray-700">
+                    Attached Documents:
+                  </p>
+                  {documents.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <span className="text-sm text-gray-700">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(index)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Submit */}
+            <div className="flex gap-4 pt-4 border-t">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading || uploadingFiles || !isFormValid()}
+                className="flex-1 px-4 py-3 bg-secondary text-white rounded-lg hover:bg-blue-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <span className="animate-spin">⏳</span>
+                    {isEditing ? "Updating..." : "Creating..."}
+                  </>
+                ) : uploadingFiles ? (
+                  <>
+                    <span className="animate-spin">⏳</span> Uploading...
+                  </>
+                ) : isEditing ? (
+                  "Update Tender"
+                ) : (
+                  "Create & Publish Tender"
+                )}
+              </button>
+            </div>
+          </form>
+        </>
+      )}
     </div>
   );
 }

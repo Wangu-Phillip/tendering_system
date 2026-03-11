@@ -7,6 +7,7 @@ import {
   updateDoc,
   doc,
   getDoc,
+  deleteDoc,
   orderBy,
   addDoc,
 } from 'firebase/firestore';
@@ -119,6 +120,21 @@ class ProcurementEntityService {
     }
   }
 
+  async getAllTenders(): Promise<Tender[]> {
+    try {
+      const tendersRef = collection(db, 'tenders');
+      const q = query(tendersRef, orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Tender[];
+    } catch (error) {
+      console.error('Error fetching all tenders:', error);
+      throw error;
+    }
+  }
+
   async getTenderById(tenderId: string): Promise<Tender | null> {
     try {
       const tenderDoc = await getDoc(doc(db, 'tenders', tenderId));
@@ -129,6 +145,27 @@ class ProcurementEntityService {
       } as Tender;
     } catch (error) {
       console.error('Error fetching tender:', error);
+      throw error;
+    }
+  }
+
+  async updateTender(tenderId: string, updates: Partial<Tender>): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'tenders', tenderId), {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error updating tender:', error);
+      throw error;
+    }
+  }
+
+  async deleteTender(tenderId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, 'tenders', tenderId));
+    } catch (error) {
+      console.error('Error deleting tender:', error);
       throw error;
     }
   }
@@ -176,6 +213,26 @@ class ProcurementEntityService {
       throw error;
     }
   }
+
+  async getAllBids(): Promise<any[]> {
+    try {
+      const bidsRef = collection(db, 'bids');
+      const q = query(bidsRef, orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as any[];
+    } catch (error) {
+      console.error('Error fetching all bids:', error);
+      throw error;
+    }
+  
+    } catch (error: any) {
+      console.error('Error fetching pending evaluations:', error);
+      throw error;
+    }
+  
 
   async createEvaluation(evaluation: Omit<BidEvaluation, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     try {
