@@ -5,12 +5,18 @@ export const formatCurrency = (amount: number, currency: string = 'BWP'): string
   }).format(amount);
 };
 
+const toDate = (date: any): Date => {
+  if (date instanceof Date) return date;
+  if (date && typeof date === 'object' && 'seconds' in date) return new Date(date.seconds * 1000);
+  return new Date(date);
+};
+
 export const formatDate = (date: Date | string | undefined | null, format: 'short' | 'long' = 'short'): string => {
   if (!date) {
     return 'N/A';
   }
   
-  const d = date instanceof Date ? date : new Date(date);
+  const d = toDate(date);
   
   if (isNaN(d.getTime())) {
     console.warn('Invalid date provided:', date);
@@ -28,7 +34,7 @@ export const formatDateTime = (date: Date | string | undefined | null): string =
     return 'N/A';
   }
   
-  const d = date instanceof Date ? date : new Date(date);
+  const d = toDate(date);
   
   if (isNaN(d.getTime())) {
     console.warn('Invalid date provided:', date);

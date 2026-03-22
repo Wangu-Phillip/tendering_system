@@ -403,7 +403,17 @@ export default function ProcurementEntityDashboard() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {new Date(bid.updatedAt).toLocaleDateString()}
+                      {(() => {
+                        const d = bid.updatedAt;
+                        if (!d) return "N/A";
+                        const date =
+                          typeof d === "object" && "seconds" in d
+                            ? new Date((d as any).seconds * 1000)
+                            : new Date(d);
+                        return isNaN(date.getTime())
+                          ? "N/A"
+                          : date.toLocaleDateString();
+                      })()}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <Link
