@@ -214,10 +214,7 @@ export default function AdminBidProcessing() {
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  Bid ID
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  Tender ID
+                  #
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                   Vendor Name
@@ -241,16 +238,13 @@ export default function AdminBidProcessing() {
             </thead>
             <tbody>
               {filteredBids.length > 0 ? (
-                filteredBids.map((bid) => (
+                filteredBids.map((bid, index) => (
                   <tr
                     key={bid.id}
                     className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
                   >
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {bid.id ? bid.id.substring(0, 8) : "N/A"}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {bid.tenderId ? bid.tenderId.substring(0, 8) : "N/A"}
+                      {index + 1}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {bid.vendorName || "N/A"}
@@ -303,7 +297,7 @@ export default function AdminBidProcessing() {
               ) : (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={7}
                     className="px-6 py-8 text-center text-gray-500"
                   >
                     No bids found
