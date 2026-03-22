@@ -9,6 +9,7 @@ import {
   Menu,
   X,
   BookOpen,
+  Bot,
 } from "lucide-react";
 import authService from "@/firebase/auth";
 import AdminDashboard from "./AdminDashboard";
@@ -16,8 +17,15 @@ import AdminUserManagement from "./AdminUserManagement";
 import AdminTenderManagement from "./AdminTenderManagement";
 import AdminBidProcessing from "./AdminBidProcessing";
 import DocumentEvaluationDashboard from "./DocumentEvaluationDashboard";
+import AIBidEvaluationPage from "../buyer/AIBidEvaluationPage";
 
-type AdminView = "dashboard" | "users" | "tenders" | "bids" | "evaluations";
+type AdminView =
+  | "dashboard"
+  | "users"
+  | "tenders"
+  | "bids"
+  | "evaluations"
+  | "ai-evaluation";
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -62,6 +70,12 @@ export default function AdminPage() {
       id: "evaluations",
       label: "Document Analysis",
       icon: BookOpen,
+      badge: "AI",
+    },
+    {
+      id: "ai-evaluation",
+      label: "AI Bid Evaluation",
+      icon: Bot,
       badge: "AI",
     },
   ];
@@ -138,6 +152,7 @@ export default function AdminPage() {
           {currentView === "tenders" && <AdminTenderManagement />}
           {currentView === "bids" && <AdminBidProcessing />}
           {currentView === "evaluations" && <DocumentEvaluationDashboard />}
+          {currentView === "ai-evaluation" && <AIBidEvaluationPage />}
         </div>
       </div>
     </div>
