@@ -85,7 +85,7 @@ class AIBidEvaluationService {
   /**
    * Get all closed tenders that have submitted bids and haven't been AI-evaluated yet
    */
-  async getClosedTendersForEvaluation(procuringEntityId?: string): Promise<any[]> {
+  async getClosedTendersForEvaluation(_procuringEntityId?: string): Promise<any[]> {
     try {
       const tendersRef = collection(db, 'tenders');
       const snapshot = await getDocs(tendersRef);

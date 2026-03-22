@@ -5,18 +5,15 @@ import {
   FileText,
   BarChart3,
   DollarSign,
-  Users,
   CheckCircle,
   Clock,
   AlertTriangle,
-  ArrowUpRight,
-  ArrowDownRight,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import procurementEntityService from "@/services/procurementEntityService";
 import { formatCurrency } from "@/utils/formatters";
 import Loading from "@/components/Loading";
-import Error from "@/components/Error";
+import ErrorDisplay from "@/components/Error";
 
 interface TenderData {
   id: string;
@@ -70,7 +67,7 @@ export default function AnalyticsPage() {
         procurementEntityService.getAllTenders(),
         procurementEntityService.getAllBids(),
       ]);
-      setTenders(allTenders as TenderData[]);
+      setTenders(allTenders as unknown as TenderData[]);
       setBids(allBids as BidData[]);
     } catch (err) {
       setError((err as Error)?.message || "Failed to load analytics data");
@@ -285,7 +282,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {error && <Error message={error} />}
+      {error && <ErrorDisplay message={error} />}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

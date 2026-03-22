@@ -10,7 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import Loading from "@/components/Loading";
-import Error from "@/components/Error";
+import ErrorDisplay from "@/components/Error";
 import { BidDocumentEvaluation, DocumentAnalysis, Bid } from "@/types";
 import documentEvaluationStorageService from "@/services/documentEvaluationStorageService";
 import documentAnalysisService from "@/services/documentAnalysisService";
@@ -487,7 +487,7 @@ export default function DocumentEvaluationDashboard() {
           {loading ? (
             <Loading />
           ) : error ? (
-            <Error message={error} />
+            <ErrorDisplay message={error} />
           ) : filteredEvaluations.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-12 text-center">
               <p className="text-slate-600">No evaluations found</p>
