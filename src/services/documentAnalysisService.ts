@@ -56,7 +56,7 @@ class DocumentAnalysisService {
       }
 
       const data = await response.json();
-      const analysisText = data.contents?.[0]?.parts?.[0]?.text || '';
+      const analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
       return this.parseAnalysisResponse(analysisText);
     } catch (error) {

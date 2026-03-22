@@ -6,11 +6,14 @@ import {
   CheckCircle,
   Eye,
   Download,
+  Play,
+  Loader2,
 } from "lucide-react";
 import Loading from "@/components/Loading";
 import Error from "@/components/Error";
-import { BidDocumentEvaluation, DocumentAnalysis } from "@/types";
+import { BidDocumentEvaluation, DocumentAnalysis, Bid } from "@/types";
 import documentEvaluationStorageService from "@/services/documentEvaluationStorageService";
+import documentAnalysisService from "@/services/documentAnalysisService";
 import firestoreService from "@/firebase/firestore";
 
 export default function DocumentEvaluationDashboard() {
@@ -32,6 +35,8 @@ export default function DocumentEvaluationDashboard() {
   const [selectedDocument, setSelectedDocument] =
     useState<DocumentAnalysis | null>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState("");
 
   useEffect(() => {
     loadTenders();
@@ -96,6 +101,182 @@ export default function DocumentEvaluationDashboard() {
       URL.revokeObjectURL(url);
     } catch (err: any) {
       alert((err as any)?.message || "Export failed");
+    }
+  };
+
+  const classifyDocumentType = (
+    fileName: string,
+  ): DocumentAnalysis["documentType"] => {
+    const lower = fileName.toLowerCase();
+    if (lower.includes("technical") || lower.includes("proposal"))
+      return "technical_proposal";
+    if (lower.includes("company") || lower.includes("profile"))
+      return "company_profile";
+    if (lower.includes("method") || lower.includes("approach"))
+      return "methodology";
+    if (lower.includes("financ") || lower.includes("price")) return "financial";
+    if (lower.includes("sample") || lower.includes("portfolio"))
+      return "work_sample";
+    return "technical_proposal";
+  };
+
+  const fetchPdfText = async (url: string): Promise<string> => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const pdfjsLib = await import("pdfjs-dist");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let text = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map((item: any) => item.str).join(" ") + "\n";
+    }
+    return text;
+  };
+
+  const handleRunAnalysis = async () => {
+    if (!selectedTenderId) return;
+
+    try {
+      setAnalyzing(true);
+      setError(null);
+
+      // Get the tender
+      const tender = tenders.find((t) => t.id === selectedTenderId);
+      if (!tender) throw new Error("Tender not found");
+
+      // Get all submitted bids for this tender
+      setAnalysisProgress("Loading bids...");
+      const allBids: Bid[] = await firestoreService.getDocuments("bids");
+      const tenderBids = allBids.filter(
+        (b) => b.tenderId === selectedTenderId && b.status === "submitted",
+      );
+
+      if (tenderBids.length === 0) {
+        setError("No submitted bids found for this tender");
+        return;
+      }
+
+      let processedCount = 0;
+      for (const bid of tenderBids) {
+        processedCount++;
+        setAnalysisProgress(
+          `Analyzing bid ${processedCount}/${tenderBids.length}: ${bid.vendorName}`,
+        );
+
+        const attachments = bid.attachments || [];
+        if (attachments.length === 0) continue;
+
+        const documentAnalyses: DocumentAnalysis[] = [];
+
+        for (const attachmentUrl of attachments) {
+          try {
+            // Extract filename from URL
+            const urlPath = decodeURIComponent(new URL(attachmentUrl).pathname);
+            const fileName =
+              urlPath.split("/").pop()?.replace(/^\d+-/, "") || "document.pdf";
+            const documentType = classifyDocumentType(fileName);
+
+            setAnalysisProgress(
+              `Bid ${processedCount}/${tenderBids.length}: Extracting text from ${fileName}...`,
+            );
+
+            // Download and extract text from PDF
+            let extractedText = "";
+            try {
+              extractedText = await fetchPdfText(attachmentUrl);
+            } catch {
+              extractedText = `[Could not extract text from ${fileName}]`;
+            }
+
+            if (!extractedText || extractedText.trim().length < 10) {
+              extractedText = `[Document: ${fileName} - minimal text content extracted]`;
+            }
+
+            setAnalysisProgress(
+              `Bid ${processedCount}/${tenderBids.length}: AI analyzing ${fileName}...`,
+            );
+
+            // Analyze with Gemini
+            const analysisResults =
+              await documentAnalysisService.analyzeDocument(
+                extractedText,
+                documentType,
+                tender.description || tender.title || "",
+              );
+
+            const docAnalysis: DocumentAnalysis = {
+              id: `doc_${bid.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              bidId: bid.id,
+              tenderId: selectedTenderId,
+              documentType,
+              fileName,
+              fileUrl: attachmentUrl,
+              extractedText: extractedText.substring(0, 5000),
+              analysisResults: {
+                relevanceScore: analysisResults.relevanceScore,
+                technicalQualityScore: analysisResults.technicalQualityScore,
+                riskAssessment: analysisResults.riskAssessment,
+                complianceScore: analysisResults.complianceScore,
+                keyFindings: analysisResults.keyFindings,
+                strengths: analysisResults.strengths,
+                weaknesses: analysisResults.weaknesses,
+                recommendations: analysisResults.recommendations,
+              },
+              geminiAnalysis: {
+                summary: analysisResults.summary,
+                detailedAnalysis: analysisResults.detailedAnalysis,
+                suggestedQuestions: analysisResults.suggestedQuestions,
+              },
+              processingStatus: "completed",
+              processedAt: new Date(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+
+            documentAnalyses.push(docAnalysis);
+
+            // Save individual analysis
+            await documentEvaluationStorageService.saveDocumentAnalysis(
+              docAnalysis,
+            );
+          } catch (docErr) {
+            console.error("Error analyzing document:", docErr);
+          }
+        }
+
+        if (documentAnalyses.length > 0) {
+          // Generate and save bid evaluation
+          const evaluation = documentAnalysisService.generateBidEvaluation(
+            bid.id,
+            selectedTenderId,
+            bid.vendorId,
+            bid.vendorName,
+            documentAnalyses,
+          );
+
+          const fullEvaluation: BidDocumentEvaluation = {
+            ...evaluation,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          await documentEvaluationStorageService.saveBidEvaluation(
+            fullEvaluation,
+          );
+        }
+      }
+
+      setAnalysisProgress("Analysis complete! Refreshing results...");
+      await loadEvaluations(selectedTenderId);
+      setAnalysisProgress("");
+    } catch (err: any) {
+      console.error("Error running analysis:", err);
+      setError(err?.message || "Failed to run document analysis");
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -190,6 +371,28 @@ export default function DocumentEvaluationDashboard() {
             </option>
           ))}
         </select>
+
+        {selectedTenderId && (
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={handleRunAnalysis}
+              disabled={analyzing}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {analyzing ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Play size={18} />
+              )}
+              {analyzing ? "Analyzing..." : "Run AI Document Analysis"}
+            </button>
+            {analysisProgress && (
+              <span className="text-sm text-purple-600 font-medium">
+                {analysisProgress}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {selectedTenderId && (

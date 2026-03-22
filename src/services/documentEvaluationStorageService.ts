@@ -95,6 +95,30 @@ class DocumentEvaluationStorageService {
   }
 
   /**
+   * Save a document analysis to Firestore
+   */
+  async saveDocumentAnalysis(analysis: DocumentAnalysis): Promise<string> {
+    try {
+      return await firestoreService.addDocument('documentAnalyses', analysis);
+    } catch (error) {
+      console.error('Error saving document analysis:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Save a bid document evaluation to Firestore
+   */
+  async saveBidEvaluation(evaluation: BidDocumentEvaluation): Promise<string> {
+    try {
+      return await firestoreService.addDocument('bidDocumentEvaluations', evaluation);
+    } catch (error) {
+      console.error('Error saving bid evaluation:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Add evaluation note
    */
   async addEvaluationNote(
