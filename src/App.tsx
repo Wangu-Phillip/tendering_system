@@ -31,6 +31,7 @@ import TenderCreationPage from "./pages/buyer/TenderCreationPage";
 import BidEvaluationPage from "./pages/buyer/BidEvaluationPage";
 import ContractManagementPage from "./pages/buyer/ContractManagementPage";
 import ClarificationRequestsPage from "./pages/buyer/ClarificationRequestsPage";
+import AIBidEvaluationPage from "./pages/buyer/AIBidEvaluationPage";
 
 // Shared Pages
 import DashboardPage from "./pages/shared/DashboardPage";
@@ -160,6 +161,10 @@ function App() {
                   <Route
                     path="/bids/evaluate/:tenderId"
                     element={<BidEvaluationPage />}
+                  />
+                  <Route
+                    path="/ai-evaluation"
+                    element={<AIBidEvaluationPage />}
                   />
                   <Route
                     path="/contracts"

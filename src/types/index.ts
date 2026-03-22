@@ -189,3 +189,41 @@ export interface BidDocumentEvaluation {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// AI BID EVALUATION TYPES
+export interface AIBidEvaluation {
+  id: string;
+  tenderId: string;
+  tenderTitle: string;
+  evaluatedAt: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  totalBidsEvaluated: number;
+  topBids: AIRankedBid[];
+  winnerId?: string;
+  winnerName?: string;
+  awardedAt?: string;
+  awardedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AIRankedBid {
+  bidId: string;
+  vendorId: string;
+  vendorName: string;
+  bidAmount: number;
+  currency: string;
+  rank: number;
+  overallScore: number;
+  breakdown: {
+    priceCompetitiveness: number;
+    technicalMerit: number;
+    experienceRelevance: number;
+    complianceAdherence: number;
+    valueForMoney: number;
+  };
+  strengths: string[];
+  weaknesses: string[];
+  aiSummary: string;
+  recommendation: string;
+}

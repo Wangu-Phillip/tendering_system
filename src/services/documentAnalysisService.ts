@@ -6,7 +6,7 @@ import { DocumentAnalysis, BidDocumentEvaluation } from '@/types';
  */
 class DocumentAnalysisService {
   private geminiApiKey: string;
-  private apiEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  private apiEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
   constructor() {
     this.geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY || '';

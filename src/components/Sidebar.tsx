@@ -29,6 +29,7 @@ export default function Sidebar({ isOpen, onToggle, userRole }: SidebarProps) {
         return [
           ...commonItems,
           { label: "Bid Submissions", href: "/bids" },
+          { label: "AI Evaluation", href: "/ai-evaluation" },
           { label: "Analytics", href: "/analytics" },
           { label: "Profile", href: "/profile" },
         ];
