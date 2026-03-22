@@ -279,7 +279,12 @@ export default function AdminBidProcessing() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {bid.createdAt
-                        ? new Date(bid.createdAt).toLocaleDateString()
+                        ? new Date(
+                            typeof bid.createdAt === "object" &&
+                              "seconds" in bid.createdAt
+                              ? (bid.createdAt as any).seconds * 1000
+                              : bid.createdAt,
+                          ).toLocaleDateString()
                         : "N/A"}
                     </td>
                     <td className="px-6 py-4 text-sm">
