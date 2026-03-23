@@ -28,6 +28,10 @@ export default function BidSubmissionPage() {
   const [purchaseVerified, setPurchaseVerified] = useState(false);
   const [checkingPurchase, setCheckingPurchase] = useState(true);
 
+  // Existing bid check
+  const [existingBid, setExistingBid] = useState(false);
+  const [checkingExistingBid, setCheckingExistingBid] = useState(true);
+
   useEffect(() => {
     async function verifyPurchase() {
       if (!currentUser?.uid || !tenderId) {
@@ -56,6 +60,28 @@ export default function BidSubmissionPage() {
     }
     verifyPurchase();
   }, [currentUser?.uid, currentUser?.role, tenderId]);
+
+  // Check if vendor already submitted a bid for this tender
+  useEffect(() => {
+    async function checkExistingBid() {
+      if (!currentUser?.uid || !tenderId) {
+        setCheckingExistingBid(false);
+        return;
+      }
+      try {
+        const bid = await bidService.getVendorBidForTender(
+          currentUser.uid,
+          tenderId,
+        );
+        setExistingBid(!!bid);
+      } catch (err) {
+        console.error("Error checking existing bid:", err);
+      } finally {
+        setCheckingExistingBid(false);
+      }
+    }
+    checkExistingBid();
+  }, [currentUser?.uid, tenderId]);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -136,6 +162,18 @@ export default function BidSubmissionPage() {
       return;
     }
 
+    // Double-check for existing bid at submission time
+    const existingBidCheck = await bidService.getVendorBidForTender(
+      currentUser.uid,
+      tender.id,
+    );
+    if (existingBidCheck) {
+      setError(
+        "You have already submitted a bid for this tender. Only one bid per tender is allowed.",
+      );
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -171,6 +209,7 @@ export default function BidSubmissionPage() {
         description: formData.description.trim(),
         attachments: attachmentUrls,
         status: "submitted",
+        editCount: 0,
       };
 
       // Submit the bid (already created with status "submitted")
@@ -198,7 +237,7 @@ export default function BidSubmissionPage() {
     }
   };
 
-  if (tenderLoading || checkingPurchase)
+  if (tenderLoading || checkingPurchase || checkingExistingBid)
     return <Loading message="Loading tender details..." />;
   if (tenderError) return <Error message={tenderError} />;
   if (!tender) return <Error message="Tender not found" />;
@@ -210,6 +249,25 @@ export default function BidSubmissionPage() {
   const feeCurrency = (tender as any).tenderFeeCurrency || "ZAR";
   const requiresPurchase =
     currentUser.role === "vendor" && tenderFee > 0 && !purchaseVerified;
+
+  if (existingBid) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+          <AlertCircle className="text-amber-600 mx-auto mb-3" size={48} />
+          <h2 className="text-xl font-bold text-amber-900 mb-2">
+            Bid Already Submitted
+          </h2>
+          <p className="text-amber-800 mb-4">
+            You have already submitted a bid for this tender. Only one bid per
+            tender is allowed. You can view or edit your existing bid from the
+            Bids page.
+          </p>
+          <Button onClick={() => navigate("/bids")}>View My Bids</Button>
+        </div>
+      </div>
+    );
+  }
 
   if (requiresPurchase) {
     return (

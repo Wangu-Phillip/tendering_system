@@ -55,6 +55,7 @@ export interface Bid {
   status: 'draft' | 'submitted' | 'evaluated' | 'rejected' | 'awarded';
   evaluationScore?: number;
   feedback?: string;
+  editCount: number;
   createdAt: Date;
   updatedAt: Date;
 }

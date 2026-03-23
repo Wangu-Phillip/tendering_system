@@ -33,6 +33,11 @@ export class BidService {
     return this.updateBid(id, { status: 'submitted' });
   }
 
+  async getVendorBidForTender(vendorId: string, tenderId: string): Promise<Bid | null> {
+    const bids = await this.getBids(tenderId);
+    return bids.find((bid) => bid.vendorId === vendorId) || null;
+  }
+
   async uploadBidAttachment(bidId: string, file: File): Promise<string> {
     const filename = `${Date.now()}-${file.name}`;
     return storageService.uploadFile(`bids/${bidId}`, filename, file);

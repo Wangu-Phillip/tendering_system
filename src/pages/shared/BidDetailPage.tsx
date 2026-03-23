@@ -83,7 +83,14 @@ export default function BidDetailPage() {
   const isOwner = currentUser?.uid === bid.vendorId;
   const isReviewer =
     currentUser?.role === "buyer" || currentUser?.role === "admin";
-  const canEditOrDelete =
+  const MAX_EDITS = 3;
+  const editCount = bid.editCount ?? 0;
+  const editsRemaining = MAX_EDITS - editCount;
+  const canEdit =
+    isOwner &&
+    (bid.status === "draft" || bid.status === "submitted") &&
+    editsRemaining > 0;
+  const canDelete =
     isOwner && (bid.status === "draft" || bid.status === "submitted");
 
   const approveBid = async () => {
@@ -166,6 +173,7 @@ export default function BidDetailPage() {
         amount: editData.amount,
         currency: editData.currency,
         description: editData.description,
+        editCount: editCount + 1,
         updatedAt: new Date(),
       });
       setIsEditMode(false);
@@ -223,11 +231,23 @@ export default function BidDetailPage() {
       </div>
 
       {/* Owner Actions */}
-      {canEditOrDelete && (
+      {(canEdit || canDelete) && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-blue-900 mb-4">
-            Your Actions
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-blue-900">
+              Your Actions
+            </h2>
+            {isOwner &&
+              (bid.status === "draft" || bid.status === "submitted") && (
+                <span
+                  className={`text-sm font-medium ${editsRemaining > 0 ? "text-blue-700" : "text-red-600"}`}
+                >
+                  {editsRemaining > 0
+                    ? `${editsRemaining} edit${editsRemaining === 1 ? "" : "s"} remaining`
+                    : "No edits remaining"}
+                </span>
+              )}
+          </div>
           {isEditMode ? (
             <div className="space-y-4">
               <p className="text-blue-800 text-sm">
@@ -247,28 +267,32 @@ export default function BidDetailPage() {
             </div>
           ) : (
             <div className="flex gap-3">
-              <Button
-                onClick={() => {
-                  setEditData({
-                    amount: bid.amount,
-                    currency: bid.currency,
-                    description: bid.description,
-                  });
-                  setIsEditMode(true);
-                }}
-                className="flex items-center gap-2"
-              >
-                <Edit2 size={18} />
-                Edit Bid
-              </Button>
-              <Button
-                onClick={() => setShowDeleteConfirm(true)}
-                variant="secondary"
-                className="!border-red-600 !text-red-600 flex items-center gap-2"
-              >
-                <Trash2 size={18} />
-                Delete Bid
-              </Button>
+              {canEdit && (
+                <Button
+                  onClick={() => {
+                    setEditData({
+                      amount: bid.amount,
+                      currency: bid.currency,
+                      description: bid.description,
+                    });
+                    setIsEditMode(true);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <Edit2 size={18} />
+                  Edit Bid
+                </Button>
+              )}
+              {canDelete && (
+                <Button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  variant="secondary"
+                  className="!border-red-600 !text-red-600 flex items-center gap-2"
+                >
+                  <Trash2 size={18} />
+                  Delete Bid
+                </Button>
+              )}
             </div>
           )}
         </div>
