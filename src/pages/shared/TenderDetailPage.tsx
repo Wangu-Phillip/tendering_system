@@ -159,7 +159,7 @@ export default function TenderDetailPage() {
               {daysUntilDeadline === 1
                 ? "Only 1 day left"
                 : `Only ${daysUntilDeadline} days left`}{" "}
-              to submit your bid
+              {isVendor ? "to submit your bid" : "before this tender closes"}
             </p>
           </div>
         </div>
@@ -373,10 +373,20 @@ export default function TenderDetailPage() {
                 You can no longer submit a bid for this tender.
               </p>
             </div>
+          ) : currentUser?.role === "admin" ? (
+            <div className="text-gray-600">
+              <p className="font-medium">Admin View</p>
+              <p className="text-sm mt-1">
+                Admins cannot submit bids for tenders.
+              </p>
+            </div>
           ) : !isVendor && currentUser?.role === "buyer" ? (
             <>
               <Button variant="secondary">View All Bids</Button>
               <Button variant="secondary">Manage Evaluation</Button>
+              <p className="text-sm text-gray-500 mt-2">
+                Procurement entities cannot submit bids for tenders.
+              </p>
             </>
           ) : !currentUser ? (
             <div className="text-gray-600">

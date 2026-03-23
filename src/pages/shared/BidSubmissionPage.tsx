@@ -243,6 +243,10 @@ export default function BidSubmissionPage() {
   if (!tender) return <Error message="Tender not found" />;
   if (!currentUser)
     return <Error message="You must be logged in to submit a bid" />;
+  if (currentUser.role === "admin" || currentUser.role === "buyer")
+    return (
+      <Error message="Only vendors can submit bids. Admins and procurement entities are not allowed to bid on tenders." />
+    );
 
   // Check if this tender requires purchase and user hasn't purchased
   const tenderFee = (tender as any).tenderFee || 0;
