@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Download, AlertCircle, Lock, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTenderDetail } from "@hooks/useTenders";
-import yocoPaymentService from "@services/yocoPaymentService";
+import demoPaymentService from "@services/demoPaymentService";
 import Loading from "@components/Loading";
 import Error from "@components/Error";
 import Badge from "@components/Badge";
@@ -33,7 +33,7 @@ export default function TenderDetailPage() {
         return;
       }
       try {
-        const purchased = await yocoPaymentService.hasUserPurchasedTender(
+        const purchased = await demoPaymentService.hasUserPurchasedTender(
           currentUser.uid,
           id,
         );

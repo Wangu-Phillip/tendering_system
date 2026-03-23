@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { CheckCircle, XCircle, AlertCircle, Loader } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import yocoPaymentService from "@services/yocoPaymentService";
+import demoPaymentService from "@services/demoPaymentService";
 import Button from "@components/Button";
 
 export default function PaymentCallbackPage() {
@@ -36,26 +36,13 @@ export default function PaymentCallbackPage() {
         return;
       }
 
-      // If we have a checkout ID, verify with Yoco and update Firestore
+      // If we have a checkout ID, mark as confirmed (demo mode)
       if (checkoutId) {
-        try {
-          const result = await yocoPaymentService.verifyCheckout(checkoutId);
-          setPaymentConfirmed(result.success);
-          if (!result.success) {
-            setError(
-              "Payment could not be verified. Please contact support if you were charged.",
-            );
-          }
-        } catch (err: any) {
-          console.error("Verification error:", err);
-          setError(
-            "Unable to verify payment status. Please check your purchases or try again.",
-          );
-        }
+        setPaymentConfirmed(true);
       } else if (tenderId) {
         // Fallback: check Firestore directly
         try {
-          const purchased = await yocoPaymentService.hasUserPurchasedTender(
+          const purchased = await demoPaymentService.hasUserPurchasedTender(
             currentUser.uid,
             tenderId,
           );

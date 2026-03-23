@@ -7,10 +7,11 @@ import {
   AlertCircle,
   FileText,
   ArrowLeft,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTenderDetail } from "@hooks/useTenders";
-import yocoPaymentService from "@services/yocoPaymentService";
+import demoPaymentService from "@services/demoPaymentService";
 import Loading from "@components/Loading";
 import Error from "@components/Error";
 import Button from "@components/Button";
@@ -32,12 +33,18 @@ export default function TenderPurchasePage() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Card form state
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
+  const [cardName, setCardName] = useState("");
+
   // Check if the user has already purchased this tender
   useEffect(() => {
     async function checkPurchaseStatus() {
       if (!currentUser?.uid || !tenderId) return;
       try {
-        const purchased = await yocoPaymentService.hasUserPurchasedTender(
+        const purchased = await demoPaymentService.hasUserPurchasedTender(
           currentUser.uid,
           tenderId,
         );
@@ -61,7 +68,7 @@ export default function TenderPurchasePage() {
       // Free tender — mark as purchased directly
       try {
         setProcessing(true);
-        await yocoPaymentService.recordPurchase({
+        await demoPaymentService.recordPurchase({
           tenderId,
           tenderTitle: tender.title,
           userId: currentUser.uid,
@@ -82,23 +89,47 @@ export default function TenderPurchasePage() {
       return;
     }
 
+    // Validate card fields
+    if (!cardNumber || !cardExpiry || !cardCvv || !cardName) {
+      setError("Please fill in all card details.");
+      return;
+    }
+
     try {
       setProcessing(true);
       setError(null);
 
-      // Create Yoco checkout and redirect to hosted payment page
-      await yocoPaymentService.initiateCheckout(
+      const result = await demoPaymentService.processPayment({
+        number: cardNumber,
+        expiry: cardExpiry,
+        cvv: cardCvv,
+        name: cardName,
+      });
+
+      if (!result.success) {
+        setError(result.message);
+        setProcessing(false);
+        return;
+      }
+
+      // Record successful purchase in Firestore
+      await demoPaymentService.recordPurchase({
         tenderId,
-        currentUser.uid,
-        currentUser.email || "",
-        currentUser.displayName || currentUser.email || "Unknown",
-        tender.title,
-        Math.round(fee * 100),
+        tenderTitle: tender.title,
+        userId: currentUser.uid,
+        userEmail: currentUser.email || "",
+        userName: currentUser.displayName || currentUser.email || "Unknown",
+        amount: fee,
         currency,
-      );
-      // User is redirected to Yoco — this code won't continue
+        yocoCheckoutId: result.transactionId,
+        status: "completed",
+      });
+
+      setPaymentSuccess(true);
+      setAlreadyPurchased(true);
     } catch (err: any) {
-      setError(err?.message || "Failed to initiate payment. Please try again.");
+      setError(err?.message || "Payment failed. Please try again.");
+    } finally {
       setProcessing(false);
     }
   };
@@ -260,7 +291,7 @@ export default function TenderPurchasePage() {
             <div>
               <p className="font-medium text-gray-900">Secure Payment</p>
               <p className="text-sm text-gray-600">
-                Payments processed securely via Yoco payment gateway
+                Payments processed securely via our payment gateway
               </p>
             </div>
           </div>
@@ -280,6 +311,82 @@ export default function TenderPurchasePage() {
           </div>
         </div>
 
+        {/* Card Payment Form */}
+        {!isFree && (
+          <div className="space-y-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cardholder Name
+              </label>
+              <input
+                type="text"
+                value={cardName}
+                onChange={(e) => setCardName(e.target.value)}
+                placeholder="John Doe"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                disabled={processing}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Card Number
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={cardNumber}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 16);
+                    const formatted = v.replace(/(\d{4})(?=\d)/g, "$1 ");
+                    setCardNumber(formatted);
+                  }}
+                  placeholder="4111 1111 1111 1111"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors pr-12"
+                  disabled={processing}
+                />
+                <CreditCard
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  size={20}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Expiry Date
+                </label>
+                <input
+                  type="text"
+                  value={cardExpiry}
+                  onChange={(e) => {
+                    let v = e.target.value.replace(/\D/g, "").slice(0, 4);
+                    if (v.length >= 3) v = v.slice(0, 2) + "/" + v.slice(2);
+                    setCardExpiry(v);
+                  }}
+                  placeholder="MM/YY"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                  disabled={processing}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  CVV
+                </label>
+                <input
+                  type="text"
+                  value={cardCvv}
+                  onChange={(e) => {
+                    setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4));
+                  }}
+                  placeholder="123"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                  disabled={processing}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         <Button
           onClick={handlePurchase}
           loading={processing}
@@ -288,16 +395,24 @@ export default function TenderPurchasePage() {
           className="w-full"
         >
           {processing
-            ? "Processing..."
+            ? "Processing Payment..."
             : isFree
               ? "Get Free Access"
               : `Pay ${formatCurrency(tenderFee, feeCurrency)}`}
         </Button>
 
-        <p className="text-xs text-center text-gray-500 mt-4">
+        {!isFree && (
+          <div className="flex items-center justify-center gap-1.5 mt-4">
+            <Lock size={14} className="text-gray-400" />
+            <p className="text-xs text-gray-500">
+              Secure payment — your card details are protected
+            </p>
+          </div>
+        )}
+
+        <p className="text-xs text-center text-gray-500 mt-2">
           By purchasing, you agree to the terms and conditions of this
           procurement process.
-          {!isFree && " Payment is processed securely via Yoco."}
         </p>
       </div>
     </div>
