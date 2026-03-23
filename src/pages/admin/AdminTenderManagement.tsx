@@ -15,6 +15,7 @@ import tenderManagementService, {
 } from "@/services/tenderManagementService";
 import Loading from "@/components/Loading";
 import Error from "@/components/Error";
+import storageService from "@/firebase/storage";
 
 export default function AdminTenderManagement() {
   const [tenders, setTenders] = useState<Tender[]>([]);
@@ -277,12 +278,24 @@ export default function AdminTenderManagement() {
         return;
       }
 
+      // Upload documents to Firebase Storage
+      const documentUrls: string[] = [];
+      for (const file of documents) {
+        const filename = `${Date.now()}-${file.name}`;
+        const url = await storageService.uploadFile(
+          "tenders/documents",
+          filename,
+          file,
+        );
+        documentUrls.push(url);
+      }
+
       await tenderManagementService.createTender({
         ...formData,
         openDate: new Date(formData.openDate).toISOString(),
         closeDate: new Date(formData.closeDate).toISOString(),
         evaluationCriteria,
-        documents: documents.map((f) => f.name),
+        documents: documentUrls,
       });
 
       setShowFormModal(false);
@@ -312,15 +325,27 @@ export default function AdminTenderManagement() {
         return;
       }
 
+      // Upload new documents to Firebase Storage if any
+      let documentUrls = formData.documents || [];
+      if (documents.length > 0) {
+        documentUrls = [];
+        for (const file of documents) {
+          const filename = `${Date.now()}-${file.name}`;
+          const url = await storageService.uploadFile(
+            "tenders/documents",
+            filename,
+            file,
+          );
+          documentUrls.push(url);
+        }
+      }
+
       await tenderManagementService.updateTender(selectedTender.id, {
         ...formData,
         openDate: new Date(formData.openDate).toISOString(),
         closeDate: new Date(formData.closeDate).toISOString(),
         evaluationCriteria,
-        documents:
-          documents.length > 0
-            ? documents.map((f) => f.name)
-            : formData.documents,
+        documents: documentUrls,
       });
 
       setShowFormModal(false);

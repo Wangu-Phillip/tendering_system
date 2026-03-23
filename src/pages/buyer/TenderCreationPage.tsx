@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { ArrowLeft, Plus, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import procurementEntityService from "@/services/procurementEntityService";
+import storageService from "@/firebase/storage";
 import TextArea from "@/components/TextArea";
 import Error from "@/components/Error";
 
@@ -183,13 +184,19 @@ export default function TenderCreationPage() {
     try {
       setLoading(true);
 
-      // Upload documents if any
+      // Upload documents to Firebase Storage
       let documentUrls: string[] = [];
       if (documents.length > 0) {
         setUploadingFiles(true);
-        // Note: In a real app, you'd upload these to storage
-        // For now, we'll just store the file names
-        documentUrls = documents.map((f) => f.name);
+        for (const file of documents) {
+          const filename = `${Date.now()}-${file.name}`;
+          const url = await storageService.uploadFile(
+            "tenders/documents",
+            filename,
+            file,
+          );
+          documentUrls.push(url);
+        }
         setUploadingFiles(false);
       }
 
@@ -202,7 +209,7 @@ export default function TenderCreationPage() {
         budget: parseFloat(formData.budget),
         openDate: new Date(formData.openDate).toISOString(),
         closeDate: new Date(formData.closeDate).toISOString(),
-        documents: documentUrls,
+        attachments: documentUrls,
         evaluationCriteria,
         tenderFee,
         tenderFeeCurrency: formData.tenderFeeCurrency,

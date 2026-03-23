@@ -18,6 +18,7 @@ export default function TenderDetailPage() {
 
   const [hasPurchased, setHasPurchased] = useState(false);
   const [checkingPurchase, setCheckingPurchase] = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
   // Check if the vendor has purchased this tender
   useEffect(() => {
@@ -78,12 +79,51 @@ export default function TenderDetailPage() {
   const feeCurrency = (tender as any).tenderFeeCurrency || "ZAR";
   const requiresPurchase = isVendor && tenderFee > 0 && !hasPurchased;
 
+  // Resolve document URLs: tenders may store them as 'attachments' or 'documents'
+  const tenderDocuments: string[] =
+    tender.attachments && tender.attachments.length > 0
+      ? tender.attachments
+      : (tender as any).documents && (tender as any).documents.length > 0
+        ? (tender as any).documents
+        : [];
+
   const handleSubmitBid = () => {
     if (!currentUser) {
       navigate("/login");
       return;
     }
     navigate(`/bids/new/${id}`);
+  };
+
+  const handleDownloadAll = async () => {
+    if (!tenderDocuments.length) return;
+    setDownloading(true);
+    try {
+      for (const url of tenderDocuments) {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        // Extract filename from URL or use a default
+        const urlPath = new URL(url).pathname;
+        const fileName = decodeURIComponent(
+          urlPath.split("/").pop() || `document`,
+        );
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      }
+    } catch (err) {
+      console.error("Error downloading documents:", err);
+      alert(
+        "Failed to download some documents. Please try downloading them individually.",
+      );
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -252,7 +292,7 @@ export default function TenderDetailPage() {
       )}
 
       {/* Tender Documents */}
-      {tender.attachments && tender.attachments.length > 0 && (
+      {tenderDocuments.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Tender Documents
@@ -274,11 +314,13 @@ export default function TenderDetailPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {tender.attachments.map((attachment, index) => (
+              {tenderDocuments.map((attachment, index) => (
                 <a
                   key={index}
                   href={attachment}
                   download
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
                 >
                   <div className="flex items-center gap-3">
@@ -314,7 +356,13 @@ export default function TenderDetailPage() {
           ) : isVendor && isTenderOpen && !isDeadlinePassed ? (
             <>
               <Button onClick={handleSubmitBid}>Submit Bid</Button>
-              <Button variant="secondary">Download All Documents</Button>
+              <Button
+                variant="secondary"
+                onClick={handleDownloadAll}
+                disabled={downloading}
+              >
+                {downloading ? "Downloading..." : "Download All Documents"}
+              </Button>
             </>
           ) : isVendor && isDeadlinePassed ? (
             <div className="text-gray-600">
