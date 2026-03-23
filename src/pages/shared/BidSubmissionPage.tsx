@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AlertCircle, Check, Upload, X, Loader } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTenderDetail } from "@hooks/useTenders";
+import yocoPaymentService from "@services/yocoPaymentService";
 import bidService from "@services/bidService";
 import tenderService from "@services/tenderService";
 import Button from "@components/Button";
@@ -22,6 +23,39 @@ export default function BidSubmissionPage() {
     loading: tenderLoading,
     error: tenderError,
   } = useTenderDetail(tenderId || "");
+
+  // Purchase check
+  const [purchaseVerified, setPurchaseVerified] = useState(false);
+  const [checkingPurchase, setCheckingPurchase] = useState(true);
+
+  useEffect(() => {
+    async function verifyPurchase() {
+      if (!currentUser?.uid || !tenderId) {
+        setCheckingPurchase(false);
+        return;
+      }
+      // Non-vendor roles don't need purchase
+      if (currentUser.role !== "vendor") {
+        setPurchaseVerified(true);
+        setCheckingPurchase(false);
+        return;
+      }
+      try {
+        const purchased = await yocoPaymentService.hasUserPurchasedTender(
+          currentUser.uid,
+          tenderId,
+        );
+        setPurchaseVerified(purchased);
+        // If tender fee is 0, auto-verified
+        // (we check this after tender loads)
+      } catch (err) {
+        console.error("Error verifying purchase:", err);
+      } finally {
+        setCheckingPurchase(false);
+      }
+    }
+    verifyPurchase();
+  }, [currentUser?.uid, currentUser?.role, tenderId]);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -164,11 +198,38 @@ export default function BidSubmissionPage() {
     }
   };
 
-  if (tenderLoading) return <Loading message="Loading tender details..." />;
+  if (tenderLoading || checkingPurchase)
+    return <Loading message="Loading tender details..." />;
   if (tenderError) return <Error message={tenderError} />;
   if (!tender) return <Error message="Tender not found" />;
   if (!currentUser)
     return <Error message="You must be logged in to submit a bid" />;
+
+  // Check if this tender requires purchase and user hasn't purchased
+  const tenderFee = (tender as any).tenderFee || 0;
+  const feeCurrency = (tender as any).tenderFeeCurrency || "ZAR";
+  const requiresPurchase =
+    currentUser.role === "vendor" && tenderFee > 0 && !purchaseVerified;
+
+  if (requiresPurchase) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+          <AlertCircle className="text-amber-600 mx-auto mb-3" size={48} />
+          <h2 className="text-xl font-bold text-amber-900 mb-2">
+            Purchase Required
+          </h2>
+          <p className="text-amber-800 mb-4">
+            You must purchase the tender documents (
+            {formatCurrency(tenderFee, feeCurrency)}) before submitting a bid.
+          </p>
+          <Button onClick={() => navigate(`/tenders/${tenderId}/purchase`)}>
+            Purchase Tender Documents
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Check if tender is still open
   const tenderStatus = (tender as any).status || tender.status;

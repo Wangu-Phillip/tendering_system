@@ -33,8 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.analyzeBidDocuments = exports.calculateBidStats = exports.onBidUpdated = exports.onTenderCreated = void 0;
+exports.verifyYocoCheckout = exports.createYocoCheckout = exports.analyzeBidDocuments = exports.calculateBidStats = exports.onBidUpdated = exports.onTenderCreated = void 0;
 const functions = __importStar(require("firebase-functions"));
+const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const generative_ai_1 = require("@google/generative-ai");
 // @ts-ignore - pdf-parse doesn't have type definitions
@@ -442,3 +443,197 @@ function generateBidEvaluation(bidId, tenderId, bidData, documentAnalyses) {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 }
+/**
+ * Create a Yoco Checkout session for purchasing tender documents.
+ * Returns a redirectUrl that the frontend navigates to.
+ */
+exports.createYocoCheckout = (0, https_1.onRequest)({ cors: true }, async (req, res) => {
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+    // Verify Firebase Auth token
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+    let userId;
+    try {
+        const token = authHeader.split('Bearer ')[1];
+        const decoded = await admin.auth().verifyIdToken(token);
+        userId = decoded.uid;
+    }
+    catch {
+        res.status(401).json({ error: 'Invalid token' });
+        return;
+    }
+    const { tenderId } = req.body;
+    if (!tenderId) {
+        res.status(400).json({ error: 'tenderId is required' });
+        return;
+    }
+    const yocoSecretKey = process.env.YOCO_SECRET_KEY || '';
+    if (!yocoSecretKey) {
+        res.status(500).json({ error: 'Yoco secret key is not configured' });
+        return;
+    }
+    try {
+        // Check if already purchased
+        const existingPurchase = await db
+            .collection('tenderPurchases')
+            .where('userId', '==', userId)
+            .where('tenderId', '==', tenderId)
+            .where('status', '==', 'completed')
+            .get();
+        if (!existingPurchase.empty) {
+            res.status(409).json({ error: 'Already purchased' });
+            return;
+        }
+        // Get tender to determine the fee
+        const tenderSnapshot = await db.collection('tenders').doc(tenderId).get();
+        if (!tenderSnapshot.exists) {
+            res.status(404).json({ error: 'Tender not found' });
+            return;
+        }
+        const tenderData = tenderSnapshot.data();
+        const tenderFee = tenderData?.tenderFee || 0;
+        const currency = tenderData?.tenderFeeCurrency || 'ZAR';
+        if (tenderFee <= 0) {
+            res.status(400).json({ error: 'This tender is free and does not require payment' });
+            return;
+        }
+        const amountInCents = Math.round(tenderFee * 100);
+        const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:5173';
+        // Create Yoco checkout session
+        const response = await fetch('https://payments.yoco.com/api/checkouts', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${yocoSecretKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                amount: amountInCents,
+                currency,
+                successUrl: `${appBaseUrl}/payment/callback?status=success&tenderId=${tenderId}`,
+                cancelUrl: `${appBaseUrl}/payment/callback?status=cancelled&tenderId=${tenderId}`,
+                failureUrl: `${appBaseUrl}/payment/callback?status=failed&tenderId=${tenderId}`,
+                metadata: {
+                    tenderId,
+                    userId,
+                    tenderTitle: tenderData?.title || '',
+                },
+            }),
+        });
+        const checkout = await response.json();
+        if (!checkout.id || !checkout.redirectUrl) {
+            console.error('Yoco checkout creation failed:', checkout);
+            res.status(500).json({ error: 'Failed to create checkout session' });
+            return;
+        }
+        // Create a pending purchase record
+        const userRecord = await admin.auth().getUser(userId);
+        await db.collection('tenderPurchases').add({
+            tenderId,
+            tenderTitle: tenderData?.title || '',
+            userId,
+            userEmail: userRecord.email || '',
+            userName: userRecord.displayName || userRecord.email || '',
+            amount: tenderFee,
+            currency,
+            yocoCheckoutId: checkout.id,
+            status: 'pending',
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`Checkout ${checkout.id} created for tender ${tenderId} by user ${userId}`);
+        res.status(200).json({ checkoutId: checkout.id, redirectUrl: checkout.redirectUrl });
+    }
+    catch (error) {
+        console.error('Checkout creation error:', error);
+        const message = error instanceof Error ? error.message : 'Failed to create checkout';
+        res.status(500).json({ error: message });
+    }
+});
+/**
+ * Verify a Yoco Checkout status after the user returns from the payment page.
+ */
+exports.verifyYocoCheckout = (0, https_1.onRequest)({ cors: true }, async (req, res) => {
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+    // Verify Firebase Auth token
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+    try {
+        const token = authHeader.split('Bearer ')[1];
+        await admin.auth().verifyIdToken(token);
+    }
+    catch {
+        res.status(401).json({ error: 'Invalid token' });
+        return;
+    }
+    const { checkoutId } = req.body;
+    if (!checkoutId) {
+        res.status(400).json({ error: 'checkoutId is required' });
+        return;
+    }
+    const yocoSecretKey = process.env.YOCO_SECRET_KEY || '';
+    if (!yocoSecretKey) {
+        res.status(500).json({ error: 'Yoco secret key is not configured' });
+        return;
+    }
+    try {
+        // Find the purchase record
+        const purchaseSnapshot = await db
+            .collection('tenderPurchases')
+            .where('yocoCheckoutId', '==', checkoutId)
+            .limit(1)
+            .get();
+        if (purchaseSnapshot.empty) {
+            res.status(404).json({ error: 'Purchase record not found' });
+            return;
+        }
+        const purchaseDoc = purchaseSnapshot.docs[0];
+        const purchaseData = purchaseDoc.data();
+        if (purchaseData.status === 'completed') {
+            res.status(200).json({ success: true, tenderId: purchaseData.tenderId, status: 'completed' });
+            return;
+        }
+        // Check checkout status with Yoco
+        const response = await fetch(`https://payments.yoco.com/api/checkouts/${checkoutId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${yocoSecretKey}`,
+            },
+        });
+        const checkout = await response.json();
+        if (checkout.status === 'completed') {
+            await purchaseDoc.ref.update({
+                status: 'completed',
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            console.log(`Payment completed for checkout ${checkoutId}, tender ${purchaseData.tenderId}`);
+            res.status(200).json({ success: true, tenderId: purchaseData.tenderId, status: 'completed' });
+        }
+        else {
+            const mappedStatus = checkout.status === 'expired' || checkout.status === 'failed'
+                ? 'failed'
+                : 'pending';
+            await purchaseDoc.ref.update({
+                status: mappedStatus,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            res.status(200).json({ success: false, tenderId: purchaseData.tenderId, status: checkout.status });
+        }
+    }
+    catch (error) {
+        console.error('Checkout verification error:', error);
+        const message = error instanceof Error ? error.message : 'Failed to verify checkout';
+        res.status(500).json({ error: message });
+    }
+});

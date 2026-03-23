@@ -7,6 +7,7 @@ import procurementEntityService from "@/services/procurementEntityService";
 import Loading from "@components/Loading";
 import Error from "@components/Error";
 import { Tender } from "@types";
+import { formatCurrency } from "@utils/formatters";
 
 export default function TendersPage() {
   const { currentUser } = useAuth();
@@ -14,10 +15,15 @@ export default function TendersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [pageError, setPageError] = useState<string | null>(null);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
 
   const isBuyer = currentUser?.role === "buyer";
 
   const filteredTenders = tenders.filter((tender: Tender) => {
+    if (deletedIds.includes(tender.id)) return false;
+    // Hide draft tenders from vendors
+    if (currentUser?.role === "vendor" && tender.status === "draft")
+      return false;
     const matchesSearch =
       tender.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tender.id.toLowerCase().includes(searchTerm.toLowerCase());
@@ -37,7 +43,7 @@ export default function TendersPage() {
 
     try {
       await procurementEntityService.deleteTender(tenderId);
-      window.location.reload();
+      setDeletedIds((prev) => [...prev, tenderId]);
     } catch (err) {
       const errorMessage = (err as Error)?.message || "Failed to delete tender";
       setPageError(errorMessage);
@@ -174,6 +180,9 @@ export default function TendersPage() {
                     Budget
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                    Doc Fee
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                     Open Date
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
@@ -203,6 +212,17 @@ export default function TendersPage() {
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {tender.currency} {tender.budget.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {(tender as any).tenderFee &&
+                      (tender as any).tenderFee > 0 ? (
+                        formatCurrency(
+                          (tender as any).tenderFee,
+                          (tender as any).tenderFeeCurrency || "ZAR",
+                        )
+                      ) : (
+                        <span className="text-green-600 font-medium">Free</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {new Date(tender.createdAt).toLocaleDateString()}

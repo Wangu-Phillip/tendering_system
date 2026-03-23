@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Download, AlertCircle } from "lucide-react";
+import { Download, AlertCircle, Lock, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTenderDetail } from "@hooks/useTenders";
+import yocoPaymentService from "@services/yocoPaymentService";
 import Loading from "@components/Loading";
 import Error from "@components/Error";
 import Badge from "@components/Badge";
@@ -14,9 +16,46 @@ export default function TenderDetailPage() {
   const { currentUser } = useAuth();
   const { tender, loading, error } = useTenderDetail(id || "");
 
-  if (loading) return <Loading message="Loading tender..." />;
+  const [hasPurchased, setHasPurchased] = useState(false);
+  const [checkingPurchase, setCheckingPurchase] = useState(true);
+
+  // Check if the vendor has purchased this tender
+  useEffect(() => {
+    async function checkPurchaseStatus() {
+      if (!currentUser?.uid || !id) {
+        setCheckingPurchase(false);
+        return;
+      }
+      // Buyers/admins always have access
+      if (currentUser.role !== "vendor") {
+        setHasPurchased(true);
+        setCheckingPurchase(false);
+        return;
+      }
+      try {
+        const purchased = await yocoPaymentService.hasUserPurchasedTender(
+          currentUser.uid,
+          id,
+        );
+        setHasPurchased(purchased);
+      } catch (err) {
+        console.error("Error checking purchase status:", err);
+      } finally {
+        setCheckingPurchase(false);
+      }
+    }
+    checkPurchaseStatus();
+  }, [currentUser?.uid, currentUser?.role, id]);
+
+  if (loading || checkingPurchase)
+    return <Loading message="Loading tender..." />;
   if (error) return <Error message={error} />;
   if (!tender) return <Error message="Tender not found" />;
+
+  // Vendors cannot view draft tenders
+  if (currentUser?.role === "vendor" && (tender as any).status === "draft") {
+    return <Error message="This tender is not available yet" />;
+  }
 
   const isVendor = currentUser?.role === "vendor";
 
@@ -33,6 +72,11 @@ export default function TenderDetailPage() {
   const daysUntilDeadline = Math.ceil(
     (tenderDeadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
   );
+
+  // Tender fee logic
+  const tenderFee = (tender as any).tenderFee || 0;
+  const feeCurrency = (tender as any).tenderFeeCurrency || "ZAR";
+  const requiresPurchase = isVendor && tenderFee > 0 && !hasPurchased;
 
   const handleSubmitBid = () => {
     if (!currentUser) {
@@ -124,6 +168,14 @@ export default function TenderDetailPage() {
                 {tender.bidCount || 0}
               </p>
             </div>
+            {tenderFee > 0 && (
+              <div>
+                <p className="text-gray-600 text-sm">Document Fee</p>
+                <p className="font-semibold text-amber-700">
+                  {formatCurrency(tenderFee, feeCurrency)}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -163,33 +215,86 @@ export default function TenderDetailPage() {
         </div>
       </div>
 
+      {/* Tender Fee Banner (for vendors who need to purchase) */}
+      {requiresPurchase && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+          <div className="flex items-start gap-4">
+            <Lock className="text-amber-600 flex-shrink-0 mt-1" size={24} />
+            <div className="flex-1">
+              <h3 className="font-semibold text-amber-900 text-lg mb-1">
+                Purchase Required
+              </h3>
+              <p className="text-amber-800 mb-3">
+                You must purchase this tender to access the documents and submit
+                a bid.
+              </p>
+              <div className="flex items-center gap-4">
+                <span className="text-2xl font-bold text-amber-900">
+                  {formatCurrency(tenderFee, feeCurrency)}
+                </span>
+                <Button onClick={() => navigate(`/tenders/${id}/purchase`)}>
+                  Purchase Tender Documents
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Purchased Confirmation (for vendors who already purchased) */}
+      {isVendor && hasPurchased && tenderFee > 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+          <ShieldCheck className="text-green-600" size={20} />
+          <p className="text-green-800 font-medium">
+            You have purchased this tender. Full document access granted.
+          </p>
+        </div>
+      )}
+
       {/* Tender Documents */}
       {tender.attachments && tender.attachments.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Tender Documents
           </h3>
-          <div className="space-y-3">
-            {tender.attachments.map((attachment, index) => (
-              <a
-                key={index}
-                href={attachment}
-                download
-                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+          {requiresPurchase ? (
+            <div className="text-center py-8">
+              <Lock className="text-gray-400 mx-auto mb-3" size={40} />
+              <p className="text-gray-600 font-medium mb-1">Documents Locked</p>
+              <p className="text-gray-500 text-sm mb-4">
+                Purchase this tender ({formatCurrency(tenderFee, feeCurrency)})
+                to download the documents.
+              </p>
+              <Button
+                variant="primary"
+                onClick={() => navigate(`/tenders/${id}/purchase`)}
               >
-                <div className="flex items-center gap-3">
-                  <Download className="text-secondary" size={20} />
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      Tender Document {index + 1}
-                    </p>
-                    <p className="text-sm text-gray-500">Click to download</p>
+                Purchase to Unlock
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {tender.attachments.map((attachment, index) => (
+                <a
+                  key={index}
+                  href={attachment}
+                  download
+                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <Download className="text-secondary" size={20} />
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        Tender Document {index + 1}
+                      </p>
+                      <p className="text-sm text-gray-500">Click to download</p>
+                    </div>
                   </div>
-                </div>
-                <Download className="text-gray-400" size={18} />
-              </a>
-            ))}
-          </div>
+                  <Download className="text-gray-400" size={18} />
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -197,7 +302,16 @@ export default function TenderDetailPage() {
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Actions</h3>
         <div className="flex flex-wrap gap-3">
-          {isVendor && isTenderOpen && !isDeadlinePassed ? (
+          {isVendor && requiresPurchase ? (
+            <div>
+              <p className="text-gray-700 font-medium mb-2">
+                Purchase this tender to access documents and submit a bid.
+              </p>
+              <Button onClick={() => navigate(`/tenders/${id}/purchase`)}>
+                Purchase Tender — {formatCurrency(tenderFee, feeCurrency)}
+              </Button>
+            </div>
+          ) : isVendor && isTenderOpen && !isDeadlinePassed ? (
             <>
               <Button onClick={handleSubmitBid}>Submit Bid</Button>
               <Button variant="secondary">Download All Documents</Button>
@@ -244,12 +358,13 @@ export default function TenderDetailPage() {
       </div>
 
       {/* How to Submit */}
-      {isVendor && isTenderOpen && !isDeadlinePassed && (
+      {isVendor && isTenderOpen && !isDeadlinePassed && !requiresPurchase && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h3 className="font-semibold text-blue-900 mb-3">
             📋 How to Submit Your Bid
           </h3>
           <ol className="space-y-2 text-sm text-blue-800 list-decimal list-inside">
+            <li>Review all tender documents carefully</li>
             <li>Click the "Submit Bid" button above</li>
             <li>Enter your proposed bid amount</li>
             <li>Describe your approach and why you're the best choice</li>

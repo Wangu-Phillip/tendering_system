@@ -21,6 +21,23 @@ export interface Tender {
   createdBy: string;
   attachments?: string[];
   bidCount: number;
+  tenderFee?: number;
+  tenderFeeCurrency?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TenderPurchase {
+  id: string;
+  tenderId: string;
+  tenderTitle: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  amount: number;
+  currency: string;
+  yocoCheckoutId: string;
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
   createdAt: Date;
   updatedAt: Date;
 }

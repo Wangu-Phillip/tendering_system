@@ -21,6 +21,14 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    proxy: {
+      '/api/yoco': {
+        target: 'https://payments.yoco.com',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/yoco/, '/api'),
+        secure: true,
+      },
+    },
   },
   build: {
     outDir: 'dist',

@@ -29,6 +29,8 @@ export default function TenderCreationPage() {
     currency: "BWP",
     openDate: "",
     closeDate: "",
+    tenderFee: "",
+    tenderFeeCurrency: "BWP",
   });
 
   const [evaluationCriteria, setEvaluationCriteria] = useState<
@@ -69,6 +71,8 @@ export default function TenderCreationPage() {
           currency: tender.currency || "BWP",
           openDate: new Date(tender.openDate).toISOString().slice(0, 16),
           closeDate: new Date(tender.closeDate).toISOString().slice(0, 16),
+          tenderFee: tender.tenderFee ? tender.tenderFee.toString() : "",
+          tenderFeeCurrency: tender.tenderFeeCurrency || "BWP",
         });
 
         if (tender.evaluationCriteria) {
@@ -95,7 +99,7 @@ export default function TenderCreationPage() {
       formData.openDate !== "" &&
       formData.closeDate !== "" &&
       new Date(formData.closeDate) > new Date(formData.openDate) &&
-      new Date(formData.openDate) > new Date() &&
+      (isEditing || new Date(formData.openDate) > new Date()) &&
       evaluationCriteria.every((c) => c.name.trim() !== "")
     );
   };
@@ -149,6 +153,9 @@ export default function TenderCreationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+  };
+
+  const handleSave = async (status: "draft" | "published") => {
     setError(null);
 
     if (!currentUser?.uid) {
@@ -186,6 +193,8 @@ export default function TenderCreationPage() {
         setUploadingFiles(false);
       }
 
+      const tenderFee = formData.tenderFee ? parseFloat(formData.tenderFee) : 0;
+
       const tenderData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
@@ -195,20 +204,26 @@ export default function TenderCreationPage() {
         closeDate: new Date(formData.closeDate).toISOString(),
         documents: documentUrls,
         evaluationCriteria,
+        tenderFee,
+        tenderFeeCurrency: formData.tenderFeeCurrency,
       };
 
       if (isEditing && tenderId) {
         await procurementEntityService.updateTender(tenderId, {
           ...tenderData,
-          status: "draft",
+          status,
         } as any);
         setSuccessMessage("Tender updated successfully! Redirecting...");
       } else {
         await procurementEntityService.createTender(currentUser.uid, {
           ...tenderData,
-          status: "draft",
+          status,
         } as any);
-        setSuccessMessage("Tender created successfully! Redirecting...");
+        setSuccessMessage(
+          status === "published"
+            ? "Tender published successfully! Redirecting..."
+            : "Tender saved as draft! Redirecting...",
+        );
       }
 
       setTimeout(() => {
@@ -363,6 +378,46 @@ export default function TenderCreationPage() {
                     step="0.01"
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
                   />
+                </div>
+
+                {/* Tender Fee */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tender Document Fee
+                    </label>
+                    <input
+                      type="number"
+                      name="tenderFee"
+                      value={formData.tenderFee}
+                      onChange={handleInputChange}
+                      placeholder="0.00 (free if empty)"
+                      min="0"
+                      step="0.01"
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Bidders must pay this fee to access tender documents.
+                      Leave empty or 0 for free access.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Fee Currency
+                    </label>
+                    <select
+                      name="tenderFeeCurrency"
+                      value={formData.tenderFeeCurrency}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                    >
+                      <option value="ZAR">ZAR (South African Rand)</option>
+                      <option value="BWP">BWP (Botswana Pula)</option>
+                      <option value="USD">USD (US Dollar)</option>
+                      <option value="EUR">EUR (Euro)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -570,28 +625,40 @@ export default function TenderCreationPage() {
               <button
                 type="button"
                 onClick={() => navigate(-1)}
-                className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                className="px-4 py-3 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
               >
                 Cancel
               </button>
               <button
-                type="submit"
+                type="button"
+                onClick={() => handleSave("draft")}
+                disabled={loading || uploadingFiles || !isFormValid()}
+                className="flex-1 px-4 py-3 border border-secondary text-secondary rounded-lg hover:bg-blue-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <span className="animate-spin">⏳</span>
+                    Saving...
+                  </>
+                ) : (
+                  "Save as Draft"
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSave("published")}
                 disabled={loading || uploadingFiles || !isFormValid()}
                 className="flex-1 px-4 py-3 bg-secondary text-white rounded-lg hover:bg-blue-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
                     <span className="animate-spin">⏳</span>
-                    {isEditing ? "Updating..." : "Creating..."}
-                  </>
-                ) : uploadingFiles ? (
-                  <>
-                    <span className="animate-spin">⏳</span> Uploading...
+                    Publishing...
                   </>
                 ) : isEditing ? (
-                  "Update Tender"
+                  "Update & Publish"
                 ) : (
-                  "Create & Publish Tender"
+                  "Save & Publish"
                 )}
               </button>
             </div>
