@@ -17,7 +17,7 @@ export interface Tender {
   budget: number;
   currency: string;
   closeDate: Date;
-  status: 'open' | 'closing_soon' | 'closed' | 'awarded';
+  status: 'draft' | 'open' | 'closing_soon' | 'closed' | 'awarded';
   createdBy: string;
   attachments?: string[];
   bidCount: number;
