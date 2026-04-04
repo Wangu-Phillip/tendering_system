@@ -101,7 +101,8 @@ export default function TenderCreationPage() {
       formData.closeDate !== "" &&
       new Date(formData.closeDate) > new Date(formData.openDate) &&
       (isEditing || new Date(formData.openDate) > new Date()) &&
-      evaluationCriteria.every((c) => c.name.trim() !== "")
+      evaluationCriteria.every((c) => c.name.trim() !== "") &&
+      (isEditing || documents.length > 0)
     );
   };
 
@@ -583,7 +584,7 @@ export default function TenderCreationPage() {
             {/* Documents */}
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                Tender Documents
+                Tender Documents <span className="text-red-500">*</span>
               </h2>
 
               <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
