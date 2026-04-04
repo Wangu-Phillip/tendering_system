@@ -143,6 +143,22 @@ export default function BidDetailPage() {
   };
 
   const getStatusMessage = (status: string) => {
+    if (isReviewer) {
+      switch (status) {
+        case "draft":
+          return "This bid is still in draft and has not been submitted.";
+        case "submitted":
+          return "This bid has been submitted and is awaiting evaluation.";
+        case "evaluated":
+          return "This bid has been evaluated and scored.";
+        case "awarded":
+          return "This bid has been selected and awarded.";
+        case "rejected":
+          return "This bid was not selected for this tender.";
+        default:
+          return "Bid status under review.";
+      }
+    }
     switch (status) {
       case "draft":
         return "This bid is still in draft and has not been submitted yet.";
