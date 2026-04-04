@@ -49,27 +49,52 @@ export class AuthService {
     });
   }
 
+  private readonly ROLE_CACHE_KEY = 'user_role_cache';
+
+  private getCachedRole(uid: string): 'admin' | 'vendor' | 'buyer' | null {
+    try {
+      const raw = localStorage.getItem(this.ROLE_CACHE_KEY);
+      if (!raw) return null;
+      const cache = JSON.parse(raw);
+      return cache[uid] ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private setCachedRole(uid: string, role: 'admin' | 'vendor' | 'buyer'): void {
+    try {
+      const raw = localStorage.getItem(this.ROLE_CACHE_KEY);
+      const cache = raw ? JSON.parse(raw) : {};
+      cache[uid] = role;
+      localStorage.setItem(this.ROLE_CACHE_KEY, JSON.stringify(cache));
+    } catch {
+      // ignore storage errors
+    }
+  }
+
   private async getUserRoleFromFirestore(uid: string): Promise<'admin' | 'vendor' | 'buyer' | null> {
     try {
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
         const data = userDoc.data();
         const role = data.role as string;
-        // Map role names if needed (e.g., 'vendor' instead of 'bidder')
+        let resolved: 'admin' | 'vendor' | 'buyer' | null = null;
         if (role === 'admin' || role === 'vendor' || role === 'buyer') {
-          return role;
+          resolved = role;
+        } else if (role === 'bidder') {
+          resolved = 'vendor';
+        } else if (role === 'procurement_entity') {
+          resolved = 'buyer';
         }
-        if (role === 'bidder') {
-          return 'vendor';
-        }
-        if (role === 'procurement_entity') {
-          return 'buyer';
-        }
+        if (resolved) this.setCachedRole(uid, resolved);
+        return resolved;
       }
       return null;
     } catch (error) {
       console.error('Error fetching user role from Firestore:', error);
-      return null;
+      // Fall back to locally cached role (covers offline scenario)
+      return this.getCachedRole(uid);
     }
   }
 
@@ -137,6 +162,7 @@ export class AuthService {
         photoURL: userCredential.user.photoURL,
         role: role || 'vendor',
       };
+      if (role) this.setCachedRole(uid, role);
       this.currentUser = user;
       this.notifyListeners(user);
       return user;
@@ -291,6 +317,7 @@ export class AuthService {
       'auth/operation-not-allowed': 'Email/password sign up is not enabled',
       'auth/configuration-not-found': 'Firebase is not properly configured. Please check your environment variables.',
       'auth/invalid-api-key': 'Invalid Firebase API key',
+      'auth/network-request-failed': 'No internet connection. Please connect and try again.',
     };
 
     const message = errorMessages[errorCode] || error?.message || 'Authentication failed';

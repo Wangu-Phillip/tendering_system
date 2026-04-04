@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from "firebase/auth";
+import { initializeAuth, indexedDBLocalPersistence } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -30,8 +30,10 @@ if (!isConfigValid) {
 const app = initializeApp(firebaseConfig);
 export { app };
 
-// Initialize Firebase Authentication and get a reference to the service
-export const auth = getAuth(app);
+// Initialize Firebase Authentication with IndexedDB persistence (reliable in PWA/offline)
+export const auth = initializeAuth(app, {
+  persistence: indexedDBLocalPersistence,
+});
 
 // Initialize Cloud Firestore with offline persistence
 export const db = initializeFirestore(app, {

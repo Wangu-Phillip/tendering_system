@@ -29,6 +29,12 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!navigator.onLine) {
+      setError("You're offline. Please connect to the internet to log in.");
+      return;
+    }
+
     setLoading(true);
 
     try {
