@@ -6,13 +6,14 @@ import Loading from "@/components/Loading";
 import Error from "@/components/Error";
 import { FileText, Plus, Edit2, Trash2 } from "lucide-react";
 import { Contract } from "@/types";
+import { formatAmountWhileTyping, blurFormatAmount } from "@/utils/formatters";
 
 interface ContractForm {
   tenderId: string;
   awardedBidId: string;
   awardedToVendor: string;
   vendorEmail: string;
-  contractValue: number;
+  contractValue: string;
   currency: string;
   startDate: string;
   endDate: string;
@@ -32,7 +33,7 @@ export default function ContractManagementPage() {
     awardedBidId: "",
     awardedToVendor: "",
     vendorEmail: "",
-    contractValue: 0,
+    contractValue: "",
     currency: "BWP",
     startDate: "",
     endDate: "",
@@ -157,14 +158,15 @@ export default function ContractManagementPage() {
 
           <div className="grid grid-cols-3 gap-4">
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               placeholder="Contract Value"
               value={formData.contractValue}
               onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  contractValue: parseFloat(e.target.value),
-                })
+                setFormData({ ...formData, contractValue: formatAmountWhileTyping(e.target.value) })
+              }
+              onBlur={() =>
+                setFormData((prev) => ({ ...prev, contractValue: blurFormatAmount(prev.contractValue) }))
               }
               className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
             />

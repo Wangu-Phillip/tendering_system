@@ -11,7 +11,7 @@ import TextArea from "@components/TextArea";
 import Loading from "@components/Loading";
 import Error from "@components/Error";
 import Badge from "@components/Badge";
-import { formatCurrency, formatDate } from "@utils/formatters";
+import { formatCurrency, formatDate, formatAmountWhileTyping, blurFormatAmount, parseAmountInput } from "@utils/formatters";
 import { Bid } from "@types";
 
 export default function BidSubmissionPage() {
@@ -100,8 +100,7 @@ export default function BidSubmissionPage() {
   const isFormValid = () => {
     return (
       formData.amount.trim() !== "" &&
-      !isNaN(parseFloat(formData.amount)) &&
-      parseFloat(formData.amount) > 0 &&
+      parseAmountInput(formData.amount) > 0 &&
       formData.description.trim() !== ""
     );
   };
@@ -114,9 +113,13 @@ export default function BidSubmissionPage() {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: name === "amount" ? formatAmountWhileTyping(value) : value,
     }));
     setError(null);
+  };
+
+  const handleAmountBlur = () => {
+    setFormData((prev) => ({ ...prev, amount: blurFormatAmount(prev.amount) }));
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,7 +207,7 @@ export default function BidSubmissionPage() {
         vendorId: currentUser.uid,
         vendorName:
           currentUser.displayName || currentUser.email || "Unknown Vendor",
-        amount: parseFloat(formData.amount),
+        amount: parseAmountInput(formData.amount),
         currency: formData.currency,
         description: formData.description.trim(),
         attachments: attachmentUrls,
@@ -404,20 +407,20 @@ export default function BidSubmissionPage() {
                   Bid Amount <span className="text-red-600">*</span>
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   name="amount"
                   value={formData.amount}
                   onChange={handleInputChange}
-                  placeholder="Enter your bid amount"
-                  step="0.01"
-                  min="0"
+                  onBlur={handleAmountBlur}
+                  placeholder="0.00"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
                 />
-                {formData.amount && !isNaN(parseFloat(formData.amount)) && (
+                {formData.amount && parseAmountInput(formData.amount) > 0 && (
                   <p className="text-xs text-gray-500 mt-1">
                     Your bid:{" "}
                     {formatCurrency(
-                      parseFloat(formData.amount),
+                      parseAmountInput(formData.amount),
                       formData.currency,
                     )}
                   </p>

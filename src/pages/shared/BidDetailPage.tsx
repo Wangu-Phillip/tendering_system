@@ -17,7 +17,7 @@ import Error from "@components/Error";
 import Button from "@components/Button";
 import Input from "@components/Input";
 import TextArea from "@components/TextArea";
-import { formatCurrency, formatDate, formatDateTime } from "@utils/formatters";
+import { formatCurrency, formatDate, formatDateTime, formatAmountWhileTyping, blurFormatAmount, parseAmountInput } from "@utils/formatters";
 import bidService from "@/services/bidService";
 import tenderService from "@/services/tenderService";
 import procurementEntityService from "@/services/procurementEntityService";
@@ -41,7 +41,9 @@ export default function BidDetailPage() {
 
   const [isEditMode, setIsEditMode] = useState(shouldStartInEditMode);
   const [editData, setEditData] = useState({
-    amount: bid?.amount || 0,
+    amount: bid?.amount
+      ? bid.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : "",
     currency: bid?.currency || "USD",
     description: bid?.description || "",
   });
@@ -158,7 +160,8 @@ export default function BidDetailPage() {
   };
 
   const handleEditSave = async () => {
-    if (!editData.amount || editData.amount <= 0) {
+    const parsedAmount = parseAmountInput(editData.amount);
+    if (!editData.amount || parsedAmount <= 0) {
       alert("Please enter a valid bid amount");
       return;
     }
@@ -170,7 +173,7 @@ export default function BidDetailPage() {
     setIsSaving(true);
     try {
       await bidService.updateBid(bid.id, {
-        amount: editData.amount,
+        amount: parsedAmount,
         currency: editData.currency,
         description: editData.description,
         editCount: editCount + 1,
@@ -309,18 +312,18 @@ export default function BidDetailPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Bid Amount *
                 </label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={editData.amount.toString()}
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={editData.amount}
                   onChange={(e) =>
-                    setEditData({
-                      ...editData,
-                      amount: parseFloat(e.target.value) || 0,
-                    })
+                    setEditData({ ...editData, amount: formatAmountWhileTyping(e.target.value) })
+                  }
+                  onBlur={() =>
+                    setEditData((prev) => ({ ...prev, amount: blurFormatAmount(prev.amount) }))
                   }
                   disabled={isSaving}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div>

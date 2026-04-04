@@ -16,6 +16,7 @@ import tenderManagementService, {
 import Loading from "@/components/Loading";
 import Error from "@/components/Error";
 import storageService from "@/firebase/storage";
+import { formatAmountWhileTyping, blurFormatAmount, parseAmountInput } from "@/utils/formatters";
 
 export default function AdminTenderManagement() {
   const [tenders, setTenders] = useState<Tender[]>([]);
@@ -236,7 +237,7 @@ export default function AdminTenderManagement() {
       procuringEntityId: tender.procuringEntityId,
       openDate: tender.openDate.split("T")[0],
       closeDate: tender.closeDate.split("T")[0],
-      budget: tender.budget,
+      budget: blurFormatAmount(tender.budget.toString()),
       currency: (tender as any).currency || "BWP",
       status: tender.status,
       category: tender.category,
@@ -257,8 +258,12 @@ export default function AdminTenderManagement() {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "budget" ? parseFloat(value) || 0 : value,
+      [name]: name === "budget" ? formatAmountWhileTyping(value) : value,
     }));
+  };
+
+  const handleBudgetBlur = () => {
+    setFormData((prev) => ({ ...prev, budget: blurFormatAmount(prev.budget as string) }));
   };
 
   const handleCreateTender = async () => {
@@ -292,6 +297,7 @@ export default function AdminTenderManagement() {
 
       await tenderManagementService.createTender({
         ...formData,
+        budget: parseAmountInput(formData.budget as string),
         openDate: new Date(formData.openDate).toISOString(),
         closeDate: new Date(formData.closeDate).toISOString(),
         evaluationCriteria,
@@ -342,6 +348,7 @@ export default function AdminTenderManagement() {
 
       await tenderManagementService.updateTender(selectedTender.id, {
         ...formData,
+        budget: parseAmountInput(formData.budget as string),
         openDate: new Date(formData.openDate).toISOString(),
         closeDate: new Date(formData.closeDate).toISOString(),
         evaluationCriteria,
@@ -821,11 +828,13 @@ export default function AdminTenderManagement() {
                     Budget
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     name="budget"
                     value={formData.budget}
                     onChange={handleFormChange}
-                    placeholder="0"
+                    onBlur={handleBudgetBlur}
+                    placeholder="0.00"
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
                   />
                 </div>

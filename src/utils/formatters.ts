@@ -74,3 +74,28 @@ export const getDaysUntil = (date: Date | string): number => {
 export const capitalizeFirstLetter = (str: string): string => {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 };
+
+/** Format a raw string while the user is typing an amount (inserts thousand-separators). */
+export const formatAmountWhileTyping = (value: string): string => {
+  let raw = value.replace(/[^0-9.]/g, "");
+  const dotIndex = raw.indexOf(".");
+  if (dotIndex !== -1) {
+    raw = raw.slice(0, dotIndex + 1) + raw.slice(dotIndex + 1).replace(/\./g, "");
+  }
+  const [intPart, decPart] = raw.split(".");
+  const formattedInt = (intPart || "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return decPart !== undefined ? `${formattedInt}.${decPart}` : formattedInt;
+};
+
+/** Format a value to 2 decimal places with thousand-separators on blur. */
+export const blurFormatAmount = (value: string): string => {
+  if (!value) return "";
+  const num = parseFloat(value.replace(/,/g, ""));
+  if (isNaN(num)) return value;
+  return num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+/** Strip commas and parse a formatted amount string to a number. */
+export const parseAmountInput = (value: string): number => {
+  return parseFloat(value.replace(/,/g, "")) || 0;
+};

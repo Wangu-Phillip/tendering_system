@@ -95,8 +95,8 @@ export default function TenderCreationPage() {
       formData.description.trim() !== "" &&
       formData.category.trim() !== "" &&
       formData.budget.trim() !== "" &&
-      !isNaN(parseFloat(formData.budget)) &&
-      parseFloat(formData.budget) > 0 &&
+      !isNaN(parseFloat(formData.budget.replace(/,/g, ""))) &&
+      parseFloat(formData.budget.replace(/,/g, "")) > 0 &&
       formData.openDate !== "" &&
       formData.closeDate !== "" &&
       new Date(formData.closeDate) > new Date(formData.openDate) &&
@@ -114,9 +114,40 @@ export default function TenderCreationPage() {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "budget" ? value : value,
+      [name]: value,
     }));
     setError(null);
+  };
+
+  const formatAmountWhileTyping = (value: string): string => {
+    // Strip everything except digits and the first decimal point
+    let raw = value.replace(/[^0-9.]/g, "");
+    const dotIndex = raw.indexOf(".");
+    if (dotIndex !== -1) {
+      raw = raw.slice(0, dotIndex + 1) + raw.slice(dotIndex + 1).replace(/\./g, "");
+    }
+    const [intPart, decPart] = raw.split(".");
+    const formattedInt = (intPart || "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return decPart !== undefined ? `${formattedInt}.${decPart}` : formattedInt;
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name } = e.target;
+    const formatted = formatAmountWhileTyping(e.target.value);
+    setFormData((prev) => ({ ...prev, [name]: formatted }));
+    setError(null);
+  };
+
+  const handleAmountBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (!value) return;
+    const raw = parseFloat(value.replace(/,/g, ""));
+    if (isNaN(raw)) return;
+    const formatted = raw.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    setFormData((prev) => ({ ...prev, [name]: formatted }));
   };
 
   const handleCriteriaChange = (
@@ -201,13 +232,16 @@ export default function TenderCreationPage() {
         setUploadingFiles(false);
       }
 
-      const tenderFee = formData.tenderFee ? parseFloat(formData.tenderFee) : 0;
+      const tenderFee = formData.tenderFee
+        ? parseFloat(formData.tenderFee.replace(/,/g, ""))
+        : 0;
 
       const tenderData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         category: formData.category.trim(),
-        budget: parseFloat(formData.budget),
+        budget: parseFloat(formData.budget.replace(/,/g, "")),
+
         openDate: new Date(formData.openDate).toISOString(),
         closeDate: new Date(formData.closeDate).toISOString(),
         attachments: documentUrls,
@@ -377,13 +411,13 @@ export default function TenderCreationPage() {
                     Budget <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     name="budget"
                     value={formData.budget}
-                    onChange={handleInputChange}
+                    onChange={handleAmountChange}
+                    onBlur={handleAmountBlur}
                     placeholder="0.00"
-                    min="0"
-                    step="0.01"
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
                   />
                 </div>
@@ -395,13 +429,13 @@ export default function TenderCreationPage() {
                       Tender Document Fee
                     </label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       name="tenderFee"
                       value={formData.tenderFee}
-                      onChange={handleInputChange}
+                      onChange={handleAmountChange}
+                      onBlur={handleAmountBlur}
                       placeholder="0.00 (free if empty)"
-                      min="0"
-                      step="0.01"
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
                     />
                     <p className="text-xs text-gray-500 mt-1">
