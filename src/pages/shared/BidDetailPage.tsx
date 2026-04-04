@@ -328,22 +328,11 @@ export default function BidDetailPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Currency *
+                  Currency
                 </label>
-                <select
-                  value={editData.currency}
-                  onChange={(e) =>
-                    setEditData({ ...editData, currency: e.target.value })
-                  }
-                  disabled={isSaving}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                >
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="GBP">GBP</option>
-                  <option value="ZAR">ZAR</option>
-                  <option value="KES">KES</option>
-                </select>
+                <p className="w-full px-4 py-2 border border-gray-100 bg-gray-50 rounded-lg text-gray-700 text-sm">
+                  BWP (Botswana Pula)
+                </p>
               </div>
             </div>
 

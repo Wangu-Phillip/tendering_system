@@ -523,7 +523,7 @@ export const createYocoCheckout = onRequest({ cors: true }, async (req, res) => 
 
     const tenderData = tenderSnapshot.data();
     const tenderFee = tenderData?.tenderFee || 0;
-    const currency = tenderData?.tenderFeeCurrency || 'ZAR';
+    const currency = tenderData?.tenderFeeCurrency || 'BWP';
 
     if (tenderFee <= 0) {
       res.status(400).json({ error: 'This tender is free and does not require payment' });

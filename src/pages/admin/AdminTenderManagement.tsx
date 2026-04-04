@@ -843,17 +843,9 @@ export default function AdminTenderManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Currency
                   </label>
-                  <select
-                    name="currency"
-                    value={formData.currency}
-                    onChange={handleFormChange}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
-                  >
-                    <option value="BWP">BWP (Botswana Pula)</option>
-                    <option value="USD">USD (US Dollar)</option>
-                    <option value="EUR">EUR (Euro)</option>
-                    <option value="ZAR">ZAR (South African Rand)</option>
-                  </select>
+                  <p className="w-full px-4 py-2 border border-gray-100 bg-gray-50 rounded-lg text-gray-700 text-sm">
+                    BWP (Botswana Pula)
+                  </p>
                 </div>
 
                 <div>

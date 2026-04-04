@@ -34,7 +34,7 @@ export const CATEGORIES = [
   'Other',
 ] as const;
 
-export const CURRENCIES = ['BWP', 'USD', 'EUR', 'GBP', 'ZAR', 'NGN', 'KES'] as const;
+export const CURRENCIES = ['BWP'] as const;
 
 export const EVALUATION_CRITERIA = {
   PRICE: 'price',

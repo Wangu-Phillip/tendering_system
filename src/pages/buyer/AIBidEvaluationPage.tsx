@@ -246,7 +246,7 @@ export default function AIBidEvaluationPage() {
                     {tender.budget && (
                       <p className="text-xs text-gray-400 mt-1">
                         Budget: {Number(tender.budget).toLocaleString()}{" "}
-                        {tender.currency || "USD"}
+                        {tender.currency || "BWP"}
                       </p>
                     )}
                   </button>

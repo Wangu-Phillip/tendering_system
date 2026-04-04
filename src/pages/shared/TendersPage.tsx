@@ -218,7 +218,7 @@ export default function TendersPage() {
                       (tender as any).tenderFee > 0 ? (
                         formatCurrency(
                           (tender as any).tenderFee,
-                          (tender as any).tenderFeeCurrency || "ZAR",
+                          (tender as any).tenderFeeCurrency || "BWP",
                         )
                       ) : (
                         <span className="text-green-600 font-medium">Free</span>

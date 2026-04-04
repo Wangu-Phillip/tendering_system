@@ -170,17 +170,9 @@ export default function ContractManagementPage() {
               }
               className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
             />
-            <select
-              value={formData.currency}
-              onChange={(e) =>
-                setFormData({ ...formData, currency: e.target.value })
-              }
-              className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
-            >
-              <option value="BWP">BWP</option>
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-            </select>
+            <p className="px-4 py-2 border border-gray-100 bg-gray-50 rounded-lg text-gray-700 text-sm">
+              BWP (Botswana Pula)
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
