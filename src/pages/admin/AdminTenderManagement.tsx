@@ -14,11 +14,12 @@ import tenderManagementService, {
   Contract,
 } from "@/services/tenderManagementService";
 import Loading from "@/components/Loading";
-import Error from "@/components/Error";
+import { useToast } from "@/context/ToastContext";
 import storageService from "@/firebase/storage";
 import { formatAmountWhileTyping, blurFormatAmount, parseAmountInput } from "@/utils/formatters";
 
 export default function AdminTenderManagement() {
+  const { showError } = useToast();
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [filteredTenders, setFilteredTenders] = useState<Tender[]>([]);
@@ -28,7 +29,6 @@ export default function AdminTenderManagement() {
     "tenders",
   );
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
@@ -49,7 +49,7 @@ export default function AdminTenderManagement() {
     procuringEntityId: "admin",
     openDate: "",
     closeDate: "",
-    budget: 0,
+    budget: "",
     currency: "BWP",
     status: "draft" as
       | "draft"
@@ -81,7 +81,6 @@ export default function AdminTenderManagement() {
   const loadData = async () => {
     try {
       setLoading(true);
-      setError(null);
 
       const [tendersData, contractsData] = await Promise.all([
         tenderManagementService.getAllTenders(),
@@ -91,7 +90,7 @@ export default function AdminTenderManagement() {
       setTenders(tendersData);
       setContracts(contractsData);
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -131,7 +130,7 @@ export default function AdminTenderManagement() {
       setShowModal(false);
       setCancellationReason("");
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     }
   };
 
@@ -147,7 +146,7 @@ export default function AdminTenderManagement() {
         ),
       );
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     }
   };
 
@@ -212,7 +211,7 @@ export default function AdminTenderManagement() {
       procuringEntityId: "admin",
       openDate: "",
       closeDate: "",
-      budget: 0,
+      budget: "",
       currency: "BWP",
       status: "draft",
       category: "",
@@ -263,7 +262,7 @@ export default function AdminTenderManagement() {
   };
 
   const handleBudgetBlur = () => {
-    setFormData((prev) => ({ ...prev, budget: blurFormatAmount(prev.budget as string) }));
+    setFormData((prev) => ({ ...prev, budget: blurFormatAmount(prev.budget) }));
   };
 
   const handleCreateTender = async () => {
@@ -274,12 +273,12 @@ export default function AdminTenderManagement() {
         !formData.openDate ||
         !formData.closeDate
       ) {
-        setError("Please fill in all required fields");
+        showError("Please fill in all required fields");
         return;
       }
 
       if (new Date(formData.closeDate) <= new Date(formData.openDate)) {
-        setError("Close date must be after open date");
+        showError("Close date must be after open date");
         return;
       }
 
@@ -297,7 +296,7 @@ export default function AdminTenderManagement() {
 
       await tenderManagementService.createTender({
         ...formData,
-        budget: parseAmountInput(formData.budget as string),
+        budget: parseAmountInput(formData.budget),
         openDate: new Date(formData.openDate).toISOString(),
         closeDate: new Date(formData.closeDate).toISOString(),
         evaluationCriteria,
@@ -305,10 +304,10 @@ export default function AdminTenderManagement() {
       });
 
       setShowFormModal(false);
-      setError(null);
+      // cleared;
       await loadData();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     }
   };
 
@@ -322,12 +321,12 @@ export default function AdminTenderManagement() {
         !formData.openDate ||
         !formData.closeDate
       ) {
-        setError("Please fill in all required fields");
+        showError("Please fill in all required fields");
         return;
       }
 
       if (new Date(formData.closeDate) <= new Date(formData.openDate)) {
-        setError("Close date must be after open date");
+        showError("Close date must be after open date");
         return;
       }
 
@@ -348,7 +347,7 @@ export default function AdminTenderManagement() {
 
       await tenderManagementService.updateTender(selectedTender.id, {
         ...formData,
-        budget: parseAmountInput(formData.budget as string),
+        budget: parseAmountInput(formData.budget),
         openDate: new Date(formData.openDate).toISOString(),
         closeDate: new Date(formData.closeDate).toISOString(),
         evaluationCriteria,
@@ -356,10 +355,10 @@ export default function AdminTenderManagement() {
       });
 
       setShowFormModal(false);
-      setError(null);
+      // cleared;
       await loadData();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     }
   };
 
@@ -374,10 +373,10 @@ export default function AdminTenderManagement() {
 
     try {
       await tenderManagementService.deleteTender(tenderId);
-      setError(null);
+      // cleared;
       await loadData();
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     }
   };
 
@@ -394,8 +393,6 @@ export default function AdminTenderManagement() {
           Manage tenders, evaluations, and contracts
         </p>
       </div>
-
-      {error && <Error message={error} />}
 
       {/* Tabs */}
       <div className="flex gap-4 border-b border-gray-200">
@@ -1085,3 +1082,4 @@ export default function AdminTenderManagement() {
     </div>
   );
 }
+

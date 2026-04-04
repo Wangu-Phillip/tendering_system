@@ -7,6 +7,8 @@ import {
 import { useEffect, useState } from "react";
 import authService, { AuthUser } from "@/firebase/auth";
 import { AuthProvider } from "@/context/AuthContext";
+import { ToastProvider } from "@/context/ToastContext";
+import ToastContainer from "./components/ToastContainer";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -83,12 +85,14 @@ function App() {
   };
 
   return (
-    <AuthProvider
-      currentUser={currentUser}
-      loading={loading}
-      userRole={currentUser?.role}
-    >
-      <Router>
+    <ToastProvider>
+      <AuthProvider
+        currentUser={currentUser}
+        loading={loading}
+        userRole={currentUser?.role}
+      >
+        <ToastContainer />
+        <Router>
         <Routes>
           {/* Public Routes - Accessible to everyone */}
           <Route
@@ -195,6 +199,7 @@ function App() {
         </Routes>
       </Router>
     </AuthProvider>
+    </ToastProvider>
   );
 }
 

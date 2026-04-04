@@ -12,7 +12,7 @@ import {
 import adminService, { SystemActivity } from "@/services/adminService";
 import { useAuth } from "@/context/AuthContext";
 import Loading from "@/components/Loading";
-import Error from "@/components/Error";
+import { useToast } from "@/context/ToastContext";
 
 interface SystemStats {
   totalUsers: number;
@@ -25,11 +25,11 @@ interface SystemStats {
 
 export default function AdminDashboard() {
   const { currentUser } = useAuth();
+  const { showError } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [activities, setActivities] = useState<SystemActivity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -38,7 +38,6 @@ export default function AdminDashboard() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      setError(null);
 
       // Fetch system stats and activities in parallel
       const [statsData, activitiesData] = await Promise.all([
@@ -53,7 +52,7 @@ export default function AdminDashboard() {
         err && typeof err === "object" && "message" in err
           ? String((err as any).message)
           : "Failed to load dashboard data";
-      setError(errorMessage);
+      showError(errorMessage);
       console.error("Dashboard load error:", err);
     } finally {
       setLoading(false);
@@ -137,8 +136,6 @@ export default function AdminDashboard() {
         )}
         <p className="text-gray-600 mt-1">System Overview & Monitoring</p>
       </div>
-
-      {error && <Error message={error} />}
 
       {/* System Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

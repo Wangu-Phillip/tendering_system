@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { ArrowLeft, Plus, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import procurementEntityService from "@/services/procurementEntityService";
 import storageService from "@/firebase/storage";
 import TextArea from "@/components/TextArea";
-import Error from "@/components/Error";
 
 interface EvaluationCriteria {
   name: string;
@@ -43,9 +43,8 @@ export default function TenderCreationPage() {
     { name: "Compliance", weight: 10, description: "" },
   ]);
 
+  const { showError, showSuccess } = useToast();
   const [documents, setDocuments] = useState<File[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
 
@@ -81,7 +80,7 @@ export default function TenderCreationPage() {
         }
       }
     } catch (err) {
-      setError("Failed to load tender");
+      showError("Failed to load tender");
       console.error(err);
     } finally {
       setPageLoading(false);
@@ -116,7 +115,6 @@ export default function TenderCreationPage() {
       ...prev,
       [name]: value,
     }));
-    setError(null);
   };
 
   const formatAmountWhileTyping = (value: string): string => {
@@ -135,7 +133,6 @@ export default function TenderCreationPage() {
     const { name } = e.target;
     const formatted = formatAmountWhileTyping(e.target.value);
     setFormData((prev) => ({ ...prev, [name]: formatted }));
-    setError(null);
   };
 
   const handleAmountBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -189,15 +186,13 @@ export default function TenderCreationPage() {
   };
 
   const handleSave = async (status: "draft" | "published") => {
-    setError(null);
-
     if (!currentUser?.uid) {
-      setError("You must be logged in to create a tender");
+      showError("You must be logged in to create a tender");
       return;
     }
 
     if (!isFormValid()) {
-      setError("Please fill in all required fields with valid values");
+      showError("Please fill in all required fields with valid values");
       return;
     }
 
@@ -207,7 +202,7 @@ export default function TenderCreationPage() {
       0,
     );
     if (totalWeight !== 100) {
-      setError(
+      showError(
         `Evaluation criteria weights must total 100% (current: ${totalWeight}%)`,
       );
       return;
@@ -255,16 +250,16 @@ export default function TenderCreationPage() {
           ...tenderData,
           status,
         } as any);
-        setSuccessMessage("Tender updated successfully! Redirecting...");
+        showSuccess("Tender updated successfully!");
       } else {
         await procurementEntityService.createTender(currentUser.uid, {
           ...tenderData,
           status,
         } as any);
-        setSuccessMessage(
+        showSuccess(
           status === "published"
-            ? "Tender published successfully! Redirecting..."
-            : "Tender saved as draft! Redirecting...",
+            ? "Tender published successfully!"
+            : "Tender saved as draft!",
         );
       }
 
@@ -273,7 +268,7 @@ export default function TenderCreationPage() {
       }, 2000);
     } catch (err: unknown) {
       const errorMessage = (err as any)?.message || "Failed to create tender";
-      setError(errorMessage);
+      showError(errorMessage);
     } finally {
       setLoading(false);
       setUploadingFiles(false);
@@ -302,16 +297,7 @@ export default function TenderCreationPage() {
         </div>
       </div>
 
-      {/* Messages */}
-      {error && <Error message={error} />}
-      {successMessage && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-          <div className="text-green-600 mt-0.5 flex-shrink-0">✓</div>
-          <div>
-            <h3 className="font-semibold text-green-900">{successMessage}</h3>
-          </div>
-        </div>
-      )}
+
 
       {pageLoading ? (
         <div className="flex items-center justify-center h-96">

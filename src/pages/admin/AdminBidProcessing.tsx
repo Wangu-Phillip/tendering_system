@@ -3,15 +3,15 @@ import { Search, Filter, CheckCircle, Star, Eye } from "lucide-react";
 import bidProcessingService from "@/services/bidProcessingService";
 import { Bid } from "@/types";
 import Loading from "@/components/Loading";
-import Error from "@/components/Error";
+import { useToast } from "@/context/ToastContext";
 
 export default function AdminBidProcessing() {
+  const { showError } = useToast();
   const [bids, setBids] = useState<Bid[]>([]);
   const [filteredBids, setFilteredBids] = useState<Bid[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedBid, setSelectedBid] = useState<Bid | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [evaluationScore, setEvaluationScore] = useState(0);
@@ -35,7 +35,6 @@ export default function AdminBidProcessing() {
   const loadBids = async () => {
     try {
       setLoading(true);
-      setError(null);
       console.log("Starting to fetch bids...");
       const allBids = await bidProcessingService.getAllBidsForProcessing();
       console.log("Fetched bids from service:", allBids);
@@ -52,7 +51,7 @@ export default function AdminBidProcessing() {
       setBids(validBids);
     } catch (err) {
       console.error("Error loading bids:", err);
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -98,7 +97,7 @@ export default function AdminBidProcessing() {
       loadBids();
       setShowModal(false);
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     }
   };
 
@@ -108,7 +107,7 @@ export default function AdminBidProcessing() {
       loadBids();
       setShowModal(false);
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     }
   };
 
@@ -120,7 +119,7 @@ export default function AdminBidProcessing() {
       loadBids();
       setShowModal(false);
     } catch (err) {
-      setError(getErrorMessage(err));
+      showError(getErrorMessage(err));
     }
   };
 
@@ -154,8 +153,6 @@ export default function AdminBidProcessing() {
           Validate, evaluate, and process bids from bidders
         </p>
       </div>
-
-      {error && <Error message={error} />}
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
