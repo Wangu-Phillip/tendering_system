@@ -15,7 +15,6 @@ import { useTenderDetail } from "@hooks/useTenders";
 import Loading from "@components/Loading";
 import Error from "@components/Error";
 import Button from "@components/Button";
-import Input from "@components/Input";
 import TextArea from "@components/TextArea";
 import { formatCurrency, formatDate, formatDateTime, formatAmountWhileTyping, blurFormatAmount, parseAmountInput } from "@utils/formatters";
 import bidService from "@/services/bidService";
@@ -290,7 +289,7 @@ export default function BidDetailPage() {
                 <Button
                   onClick={() => {
                     setEditData({
-                      amount: bid.amount,
+                      amount: bid.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
                       currency: bid.currency,
                       description: bid.description,
                     });
