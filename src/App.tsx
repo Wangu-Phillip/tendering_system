@@ -9,6 +9,7 @@ import authService, { AuthUser } from "@/firebase/auth";
 import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
 import ToastContainer from "./components/ToastContainer";
+import { PWAInstallPrompt } from "./components/PWAInstallPrompt";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -198,6 +199,7 @@ function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Router>
+      <PWAInstallPrompt />
     </AuthProvider>
     </ToastProvider>
   );
